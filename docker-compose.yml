@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+      - redis
+      - etcd
+    restart: unless-stopped
+    networks:
+      - pinnacle-net
+
+  postgres:
+    image: postgres:13-alpine
+    environment:
+      POSTGRES_USER: pinnacle
+      POSTGRES_PASSWORD: pinnacle
+      POSTGRES_DB: pinnacle_copilot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - pinnacle-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pinnacle -d pinnacle_copilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - pinnacle-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 3
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    command: etcd -advertise-client-urls http://etcd:2379 -listen-client-urls http://0.0.0.0:2379
+    ports:
+      - "2379:2379"
+    volumes:
+      - etcd_data:/etcd-data
+    networks:
+      - pinnacle-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@pinnacle.local
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - pinnacle-net
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - pinnacle-net
+
+networks:
+  pinnacle-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  etcd_data:

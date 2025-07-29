@@ -1,0 +1,189 @@
+# Core Dependencies
+fastapi>=0.68.0
+uvicorn>=0.15.0
+python-multipart>=0.0.5
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-dotenv>=0.19.0
+sqlalchemy>=1.4.23
+alembic>=1.7.3
+psycopg2-binary>=2.9.1
+pydantic>=1.8.2
+python-socketio>=5.4.1
+python-engineio>=4.3.1
+websockets>=9.1
+httpx>=0.19.0
+pytest>=6.2.5
+pytest-asyncio>=0.15.1
+
+# AI/ML Dependencies
+torch>=1.9.0
+transformers>=4.11.0
+sentence-transformers>=2.1.0
+langchain>=0.0.200
+openai>=0.27.0
+
+# Vector Database
+chromadb>=0.3.21
+
+# Utilities
+python-dateutil>=2.8.2
+python-magic>=0.4.24
+requests>=2.26.0
+beautifulsoup4>=4.10.0
+lxml>=4.6.3
+
+# Development Tools
+black>=21.7b0
+isort>=5.9.3
+flake8>=3.9.2
+mypy>=0.910
+pylint>=2.11.1
+pytest-cov>=2.12.1
+
+# For PDF and Document Processing
+PyPDF2>=1.27.5
+python-docx>=0.8.11
+python-pptx>=0.6.21
+
+# For Excel and CSV Processing
+pandas>=1.3.3
+openpyxl>=3.0.9
+
+# For Web Scraping
+scrapy>=2.5.0
+selenium>=4.1.0
+webdriver-manager>=3.5.2
+
+# For Image Processing
+Pillow>=8.4.0
+opencv-python-headless>=4.5.4.58
+
+# For Audio Processing
+pydub>=0.25.1
+SpeechRecognition>=3.8.1
+
+# For Video Processing
+moviepy>=1.0.3
+
+# For Data Visualization
+matplotlib>=3.4.3
+seaborn>=0.11.2
+plotly>=5.3.1
+
+# For API Documentation
+fastapi-sqlalchemy>=0.3.0
+fastapi-utils>=0.2.1
+fastapi-users>=9.2.1
+
+# For Authentication
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+python-multipart>=0.0.5
+
+# For Database
+sqlalchemy>=1.4.23
+alembic>=1.7.3
+psycopg2-binary>=2.9.1
+
+# For Caching
+redis>=3.5.3
+
+# For Task Queue
+celery>=5.1.2
+
+# For WebSocket
+websockets>=9.1
+python-socketio>=5.4.1
+
+# For Monitoring
+prometheus-client>=0.12.0
+sentry-sdk>=1.4.3
+
+# For Testing
+pytest>=6.2.5
+pytest-asyncio>=0.15.1
+pytest-cov>=2.12.1
+pytest-mock>=3.6.1
+pytest-xdist>=2.4.0
+
+# For Code Quality
+black>=21.7b0
+isort>=5.9.3
+flake8>=3.9.2
+mypy>=0.910
+pylint>=2.11.1
+
+# For Documentation
+mkdocs>=1.2.3
+mkdocs-material>=7.3.6
+mkdocstrings>=0.17.0
+pymdown-extensions>=9.0
+
+# For Deployment
+gunicorn>=20.1.0
+uvicorn[standard]>=0.15.0
+
+# For Containerization
+docker>=5.0.3
+docker-compose>=1.29.2
+
+# For Cloud Services
+boto3>=1.20.24
+google-cloud-storage>=2.1.0
+azure-storage-blob>=12.9.0
+
+# For Security
+cryptography>=35.0.0
+python-keycloak>=2.8.0
+
+# For Data Processing
+numpy>=1.21.2
+scipy>=1.7.1
+scikit-learn>=0.24.2
+
+# For Natural Language Processing
+nltk>=3.6.3
+spacy>=3.1.3
+en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.1.0/en_core_web_sm-3.1.0.tar.gz
+
+# For Date and Time
+pytz>=2021.3
+python-dateutil>=2.8.2
+
+# For File Operations
+python-magic>=0.4.24
+python-magic-bin>=0.4.14; sys_platform == 'win32'
+
+# For Compression
+python-zipstream>=1.1.8
+py7zr>=0.16.1
+
+# For System Operations
+psutil>=5.9.0
+sh>=1.14.2
+
+# For Web Development
+jinja2>=3.0.1
+markupsafe>=2.0.1
+
+# For Data Validation
+pydantic[email]>=1.8.2
+email-validator>=1.1.3
+
+# For Testing
+pytest>=6.2.5
+pytest-asyncio>=0.15.1
+pytest-cov>=2.12.1
+pytest-mock>=3.6.1
+pytest-xdist>=2.4.0
+
+# For Documentation
+mkdocs>=1.2.3
+mkdocs-material>=7.3.6
+mkdocstrings>=0.17.0
+pymdown-extensions>=9.0
+
+# For Deployment
+gunicorn>=20.1.0
+uvicorn[standard]>=0.15.0

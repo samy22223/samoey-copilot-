@@ -1,0 +1,6 @@
+{
+        "system_prompt": "You are Pinnacle Copilot, an advanced AI assistant.",
+        "language": "en",
+        "tone": "friendly",
+        "knowledge_sources": ["system"]
+    }

@@ -1,0 +1,203 @@
+
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Pinnacle Copilot</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+            <style>
+                .status-card { transition: all 0.3s ease; }
+                .status-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+            </style>
+        </head>
+        <body class="bg-gray-100">
+            <div class="min-h-screen">
+                <nav class="bg-blue-600 text-white p-4 shadow-lg">
+                    <div class="container mx-auto flex justify-between items-center">
+                        <h1 class="text-2xl font-bold">Pinnacle Copilot</h1>
+                        <div class="flex items-center space-x-4">
+                            <span id="status-indicator" class="h-3 w-3 rounded-full bg-yellow-400 animate-pulse"></span>
+                            <span id="status-text" class="text-sm">Connecting...</span>
+                        </div>
+                    </div>
+                </nav>
+                
+                <main class="container mx-auto p-4 md:p-8">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- CPU Card -->
+                        <div class="bg-white rounded-lg shadow p-6 status-card">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">CPU Usage</h2>
+                            <div class="h-4 bg-gray-200 rounded-full mb-2">
+                                <div id="cpu-bar" class="h-full bg-blue-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="cpu-text" class="text-right font-mono">0%</p>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600">Cores: <span id="cpu-cores" class="font-mono">0</span></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Memory Card -->
+                        <div class="bg-white rounded-lg shadow p-6 status-card">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">Memory</h2>
+                            <div class="h-4 bg-gray-200 rounded-full mb-2">
+                                <div id="mem-bar" class="h-full bg-green-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="mem-text" class="text-right font-mono">0% (0 GB / 0 GB)</p>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600">Available: <span id="mem-available" class="font-mono">0 GB</span></p>
+                            </div>
+                        </div>
+                        
+                        <!-- Disk Card -->
+                        <div class="bg-white rounded-lg shadow p-6 status-card">
+                            <h2 class="text-xl font-semibold mb-4 text-gray-800">Disk Usage</h2>
+                            <div class="h-4 bg-gray-200 rounded-full mb-2">
+                                <div id="disk-bar" class="h-full bg-yellow-500 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="disk-text" class="text-right font-mono">0% (0 GB / 0 GB)</p>
+                            <div class="mt-4">
+                                <p class="text-sm text-gray-600">Free: <span id="disk-free" class="font-mono">0 GB</span></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- System Info -->
+                    <div class="mt-8 bg-white rounded-lg shadow p-6">
+                        <h2 class="text-xl font-semibold mb-4 text-gray-800">System Information</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-sm">
+                            <div><span class="text-gray-600">Hostname:</span> <span id="hostname" class="font-mono">Loading...</span></div>
+                            <div><span class="text-gray-600">OS:</span> <span id="os" class="font-mono">Loading...</span></div>
+                            <div><span class="text-gray-600">Python:</span> <span id="python-version" class="font-mono">Loading...</span></div>
+                            <div><span class="text-gray-600">CPU Cores:</span> <span id="cpu-cores" class="font-mono">0</span></div>
+                            <div><span class="text-gray-600">Total Memory:</span> <span id="total-memory" class="font-mono">0 GB</span></div>
+                            <div><span class="text-gray-600">Uptime:</span> <span id="uptime" class="font-mono">0h 0m</span></div>
+                        </div>
+                    </div>
+                    
+                    <!-- CPU Usage Chart -->
+                    <div class="mt-8 bg-white rounded-lg shadow p-6">
+                        <h2 class="text-xl font-semibold mb-4 text-gray-800">CPU Usage History</h2>
+                        <canvas id="cpu-chart" height="100"></canvas>
+                    </div>
+                </main>
+            </div>
+            
+            <script>
+                // System info
+                fetch('/api/system/info')
+                    .then(response => response.json())
+                    .then(data => {
+                        document.getElementById('hostname').textContent = data.hostname;
+                        document.getElementById('os').textContent = data.os;
+                        document.getElementById('python-version').textContent = data.python_version;
+                        document.getElementById('cpu-cores').textContent = data.cpu_cores;
+                        document.getElementById('total-memory').textContent = 
+                            (data.total_memory / (1024 ** 3)).toFixed(1) + ' GB';
+                    });
+                
+                // WebSocket connection
+                const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const ws = new WebSocket(`${wsProtocol}//${window.location.host}/ws`);
+                
+                // Chart setup
+                const cpuCtx = document.getElementById('cpu-chart').getContext('2d');
+                const cpuChart = new Chart(cpuCtx, {
+                    type: 'line',
+                    data: {
+                        labels: Array(30).fill(''),
+                        datasets: [{
+                            label: 'CPU Usage %',
+                            data: [],
+                            borderColor: 'rgb(59, 130, 246)',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100
+                            }
+                        },
+                        animation: false
+                    }
+                });
+                
+                // Update chart
+                function updateChart(value) {
+                    const chart = cpuChart.data.datasets[0].data;
+                    chart.push(value);
+                    if (chart.length > 30) chart.shift();
+                    cpuChart.update('none');
+                }
+                
+                // WebSocket message handler
+                ws.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    
+                    if (data.type === 'system_metrics') {
+                        // Update status
+                        document.getElementById('status-indicator').className = 'h-3 w-3 rounded-full bg-green-500';
+                        document.getElementById('status-text').textContent = 'Connected';
+                        
+                        // Update CPU
+                        const cpuPercent = Math.round(data.cpu_percent);
+                        document.getElementById('cpu-bar').style.width = `${cpuPercent}%`;
+                        document.getElementById('cpu-text').textContent = `${cpuPercent}%`;
+                        updateChart(cpuPercent);
+                        
+                        // Update Memory
+                        const mem = data.memory;
+                        const memPercent = Math.round(mem.percent);
+                        const usedGB = (mem.used / (1024 ** 3)).toFixed(1);
+                        const totalGB = (mem.total / (1024 ** 3)).toFixed(1);
+                        const availGB = (mem.available / (1024 ** 3)).toFixed(1);
+                        
+                        document.getElementById('mem-bar').style.width = `${memPercent}%`;
+                        document.getElementById('mem-text').textContent = 
+                            `${memPercent}% (${usedGB} GB / ${totalGB} GB)`;
+                        document.getElementById('mem-available').textContent = 
+                            `${availGB} GB`;
+                        
+                        // Update Disk
+                        const disk = data.disk;
+                        const diskPercent = Math.round(disk.percent);
+                        const usedDiskGB = (disk.used / (1024 ** 3)).toFixed(1);
+                        const totalDiskGB = (disk.total / (1024 ** 3)).toFixed(1);
+                        const freeDiskGB = (disk.free / (1024 ** 3)).toFixed(1);
+                        
+                        document.getElementById('disk-bar').style.width = `${diskPercent}%`;
+                        document.getElementById('disk-text').textContent = 
+                            `${diskPercent}% (${usedDiskGB} GB / ${totalDiskGB} GB)`;
+                        document.getElementById('disk-free').textContent = 
+                            `${freeDiskGB} GB`;
+                        
+                        // Update uptime
+                        const uptime = new Date() - new Date(data.timestamp);
+                        const hours = Math.floor(uptime / 3600000);
+                        const minutes = Math.floor((uptime % 3600000) / 60000);
+                        document.getElementById('uptime').textContent = 
+                            `${hours}h ${minutes}m`;
+                    }
+                };
+                
+                // Handle connection errors
+                ws.onclose = function() {
+                    document.getElementById('status-indicator').className = 'h-3 w-3 rounded-full bg-red-500';
+                    document.getElementById('status-text').textContent = 'Disconnected';
+                    
+                    // Try to reconnect after 5 seconds
+                    setTimeout(() => window.location.reload(), 5000);
+                };
+                
+                ws.onerror = function(error) {
+                    console.error('WebSocket error:', error);
+                    document.getElementById('status-indicator').className = 'h-3 w-3 rounded-full bg-yellow-500';
+                    document.getElementById('status-text').textContent = 'Connection error';
+                };
+            </script>
+        </body>
+        </html>
+        

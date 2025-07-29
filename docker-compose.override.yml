@@ -1,0 +1,98 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.optimized
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+      - etcd
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pinnacle_copilot
+      - REDIS_URL=redis://redis:6379/0
+      - ETCD_HOST=etcd
+      - ETCD_PORT=2379
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    networks:
+      - pinnacle-network
+
+  postgres:
+    image: postgres:13
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=pinnacle_copilot
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pinnacle-network
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pinnacle-network
+
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.0
+    command: etcd -advertise-client-urls http://0.0.0.0:2379 -listen-client-urls http://0.0.0.0:2379
+    ports:
+      - "2379:2379"
+      - "2380:2380"
+    volumes:
+      - etcd_data:/etcd-data
+    networks:
+      - pinnacle-network
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@pinnacle.local
+      - PGADMIN_DEFAULT_PASSWORD=admin
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - pinnacle-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+    networks:
+      - pinnacle-network
+
+networks:
+  pinnacle-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  etcd_data:

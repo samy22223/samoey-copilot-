@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-100">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinnacle Copilot - Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/highlightjs/cdn-release@11.7.0/build/highlight.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .message-container {
+            height: calc(100vh - 200px);
+            overflow-y: auto;
+        }
+        .typing-indicator:after {
+            content: '...';
+            animation: typing 1.5s infinite;
+            display: inline-block;
+            width: 1em;
+            text-align: left;
+        }
+        @keyframes typing {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="w-64 bg-gray-800 text-white p-4 flex flex-col">
+            <div class="flex items-center mb-8">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center mr-3">
+                    <span class="text-xl font-bold">PC</span>
+                </div>
+                <h1 class="text-xl font-bold">Pinnacle Copilot</h1>
+            </div>
+            
+            <nav class="flex-1">
+                <a href="/" class="block py-2 px-4 rounded hover:bg-gray-700 mb-2">
+                    <i class="fas fa-tachometer-alt mr-2"></i>Dashboard
+                </a>
+                <a href="/chat" class="block py-2 px-4 rounded bg-gray-700 hover:bg-gray-600 mb-2">
+                    <i class="fas fa-comments mr-2"></i>AI Chat
+                </a>
+                <a href="#" class="block py-2 px-4 rounded hover:bg-gray-700 mb-2">
+                    <i class="fas fa-cog mr-2"></i>Settings
+                </a>
+            </nav>
+            
+            <div class="pt-4 border-t border-gray-700">
+                <div class="text-sm text-gray-400 mb-2">System Status</div>
+                <div class="flex items-center text-green-400 text-sm">
+                    <div class="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                    <span>Operational</span>
+                </div>
+                <div class="text-xs text-gray-500 mt-4">v1.0.0</div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white shadow-sm p-4">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xl font-semibold">AI Assistant</h2>
+                    <div class="flex items-center space-x-4">
+                        <div class="relative">
+                            <select id="language-select" class="appearance-none bg-gray-100 border border-gray-300 rounded-md py-1 px-3 pr-8 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="en">English</option>
+                                <option value="fr">Français</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                                <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                    <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                                </svg>
+                            </div>
+                        </div>
+                        <button id="clear-chat" class="text-sm text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-trash-alt mr-1"></i> Clear Chat
+                        </button>
+                    </div>
+                </div>
+            </header>
+            
+            <!-- Chat Messages -->
+            <div id="chat-messages" class="message-container p-4 space-y-4 flex-1 overflow-y-auto">
+                <!-- Messages will be added here dynamically -->
+                <div class="text-center text-gray-500 mt-10">
+                    <div class="text-2xl mb-2">👋</div>
+                    <h3 class="text-lg font-medium">Welcome to Pinnacle Copilot</h3>
+                    <p class="text-sm">Ask me anything or request system information</p>
+                </div>
+            </div>
+            
+            <!-- Message Input -->
+            <div class="p-4 border-t border-gray-200 bg-white">
+                <form id="message-form" class="flex space-x-2">
+                    <div class="flex-1 relative">
+                        <input type="text" id="message-input" 
+                               class="w-full border border-gray-300 rounded-lg py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Type your message..." autocomplete="off">
+                        <div class="absolute right-3 top-3 text-gray-400">
+                            <button type="button" id="send-button" class="text-blue-500 hover:text-blue-700">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                <div class="text-xs text-gray-500 mt-2 flex justify-between">
+                    <span>Press Enter to send, Shift+Enter for new line</span>
+                    <span id="typing-indicator" class="hidden">AI is typing<span class="typing-dots">...</span></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://kit.fontawesome.com/your-code.js" crossorigin="anonymous"></script>
+    <script>
+        // Application State
+        const state = {
+            socket: null,
+            isConnected: false,
+            isTyping: false,
+            currentConversationId: null,
+            reconnectAttempts: 0,
+            maxReconnectAttempts: 5,
+            messageQueue: []
+        };
+
+        // DOM Elements
+        const elements = {
+            messageForm: document.getElementById('message-form'),
+            messageInput: document.getElementById('message-input'),
+            chatMessages: document.getElementById('chat-messages'),
+            typingIndicator: document.getElementById('typing-indicator'),
+            connectionStatus: document.getElementById('connection-status'),
+            stopGenerationBtn: document.getElementById('stop-generation')
+        };
+
+        // Initialize WebSocket connection
+        function initWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+            const wsUrl = `${protocol}${window.location.host}/ws`;
+            
+            state.socket = new WebSocket(wsUrl);
+            
+            state.socket.onopen = () => {
+                console.log('WebSocket connected');
+                state.isConnected = true;
+                state.reconnectAttempts = 0;
+                updateConnectionStatus(true);
+                
+                // Process any queued messages
+                processMessageQueue();
+            };
+            
+            state.socket.onmessage = handleWebSocketMessage;
+            
+            state.socket.onclose = () => {
+                console.log('WebSocket disconnected');
+                state.isConnected = false;
+                updateConnectionStatus(false);
+                
+                // Attempt to reconnect
+                if (state.reconnectAttempts < state.maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, state.reconnectAttempts), 30000);
+                    console.log(`Reconnecting in ${delay}ms...`);
+                    
+                    setTimeout(() => {
+                        state.reconnectAttempts++;
+                        initWebSocket();
+                    }, delay);
+                } else {
+                    showToast('Connection lost. Please refresh the page.', 'error');
+                }
+            };
+            
+            state.socket.onerror = (error) => {
+                console.error('WebSocket error:', error);
+                showToast('Connection error', 'error');
+            };
+        }
+
+        // Handle WebSocket messages
+        function handleWebSocketMessage(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                switch (data.type) {
+                    case 'chat_response':
+                        setTypingState(false);
+                        addMessage({
+                            role: 'assistant',
+                            content: data.message,
+                            timestamp: new Date().toISOString()
+                        });
+                        break;
+                        
+                    case 'system':
+                        addSystemMessage(data.message);
+                        break;
+                        
+                    case 'typing':
+                        setTypingState(data.isTyping);
+                        break;
+                        
+                    case 'error':
+                        showToast(data.message || 'An error occurred', 'error');
+                        setTypingState(false);
+                        break;
+                        
+                    case 'conversation_created':
+                        state.currentConversationId = data.conversationId;
+                        break;
+                }
+            } catch (error) {
+                console.error('Error processing WebSocket message:', error);
+            }
+        }
+
+        // Add a message to the chat
+        function addMessage(message) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `flex mb-4 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`;
+            
+            // Create message bubble
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `max-w-3xl rounded-lg px-4 py-2 ${
+                message.role === 'user' 
+                    ? 'bg-blue-500 text-white rounded-br-none' 
+                    : 'bg-gray-100 text-gray-800 rounded-bl-none'
+            }`;
+            
+            // Process markdown and code blocks
+            messageBubble.innerHTML = formatMessageContent(message.content);
+            
+            // Add metadata
+            const metadata = document.createElement('div');
+            metadata.className = 'flex items-center justify-between mt-1 text-xs text-gray-500';
+            
+            const timestamp = document.createElement('span');
+            timestamp.textContent = new Date(message.timestamp).toLocaleTimeString();
+            
+            // Add copy button for code blocks
+            if (message.content.includes('```')) {
+                const copyButton = document.createElement('button');
+                copyButton.className = 'ml-2 text-gray-400 hover:text-blue-500';
+                copyButton.innerHTML = '<i class="far fa-copy"></i>';
+                copyButton.title = 'Copy code';
+                copyButton.onclick = () => copyCodeToClipboard(message.content);
+                
+                metadata.appendChild(document.createElement('div')); // Spacer
+                metadata.appendChild(copyButton);
+            }
+            
+            metadata.appendChild(timestamp);
+            
+            messageDiv.appendChild(messageBubble);
+            messageDiv.appendChild(metadata);
+            
+            // Add to chat
+            elements.chatMessages.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        // Format message content with markdown and code highlighting
+        function formatMessageContent(content) {
+            // Handle code blocks with syntax highlighting
+            let formatted = content.replace(/```(\w*)\n([\s\S]*?)\n```/g, (match, lang, code) => {
+                const language = lang || 'plaintext';
+                return `<div class="code-block my-2">
+                    <div class="flex justify-between items-center mb-1 text-xs text-gray-400">
+                        <span>${language}</span>
+                    </div>
+                    <pre><code class="language-${language}">${escapeHtml(code)}</code></pre>
+                </div>`;
+            });
+            
+            // Simple markdown support (bold, italic, links)
+            formatted = formatted
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-500 hover:underline" target="_blank">$1</a>');
+                
+            // Handle line breaks
+            return formatted.replace(/\n/g, '<br>');
+        }
+        
+        // Helper to escape HTML
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+        
+        // Copy code to clipboard
+        function copyCodeToClipboard(code) {
+            // Extract code from markdown code blocks
+            const cleanCode = code.replace(/```[\s\S]*?\n([\s\S]*?)\n```/g, '$1');
+            
+            navigator.clipboard.writeText(cleanCode).then(() => {
+                showToast('Code copied to clipboard', 'success');
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showToast('Failed to copy code', 'error');
+            });
+        }
+        
+        // Add system message to chat
+        function addSystemMessage(message) {
+            const systemMessage = document.createElement('div');
+            systemMessage.className = 'text-center text-sm text-gray-500 my-2';
+            systemMessage.textContent = message;
+            elements.chatMessages.appendChild(systemMessage);
+            scrollToBottom();
+        }
+        
+        // Update connection status UI
+        function updateConnectionStatus(isConnected) {
+            state.isConnected = isConnected;
+            if (elements.connectionStatus) {
+                elements.connectionStatus.textContent = isConnected ? 'Connected' : 'Disconnected';
+                elements.connectionStatus.className = isConnected ? 'text-green-500' : 'text-red-500';
+            }
+        }
+        
+        // Set typing indicator state
+        function setTypingState(isTyping) {
+            state.isTyping = isTyping;
+            
+            if (elements.typingIndicator) {
+                elements.typingIndicator.classList.toggle('hidden', !isTyping);
+            }
+            
+            if (elements.stopGenerationBtn) {
+                elements.stopGenerationBtn.classList.toggle('hidden', !isTyping);
+            }
+            
+            // Auto-hide typing indicator after timeout
+            if (isTyping) {
+                clearTimeout(window.typingTimeout);
+                window.typingTimeout = setTimeout(() => {
+                    setTypingState(false);
+                }, 10000); // 10 seconds timeout
+            }
+        }
+        
+        // Show toast notification
+        function showToast(message, type = 'info') {
+            // Implementation for toast notifications
+            console.log(`[${type}] ${message}`);
+            // You can implement a proper toast notification UI here
+        }
+        
+        // Scroll chat to bottom
+        function scrollToBottom() {
+            elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+        }
+        
+        // Process any queued messages
+        function processMessageQueue() {
+            while (state.messageQueue.length > 0 && state.isConnected) {
+                const message = state.messageQueue.shift();
+                state.socket.send(JSON.stringify(message));
+            }
+        }
+        
+        // Send message to WebSocket with queueing
+        function sendWebSocketMessage(message) {
+            if (state.isConnected) {
+                state.socket.send(JSON.stringify(message));
+            } else {
+                state.messageQueue.push(message);
+                }
+            }
+            
+            // Clear chat history
+            async function clearChat() {
+                if (!state.currentConversationId) return;
+                
+                try {
+                    const response = await fetch(`/api/conversations/${state.currentConversationId}/messages`, {
+                        method: 'DELETE'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to clear chat');
+                    }
+                    
+                    // Clear the chat UI
+                    elements.chatMessages.innerHTML = '';
+                    
+                    // Add welcome message
+                    addSystemMessage('Chat history cleared. Start a new conversation.');
+                    
+                    // Create a new conversation
+                    await createConversation('New Chat');
+                    
+                } catch (error) {
+                    console.error('Error clearing chat:', error);
+                    showToast('Failed to clear chat', 'error');
+                }
+            }
+            
+            // Stop the current generation
+            function stopGeneration() {
+                if (state.isConnected) {
+                    sendWebSocketMessage({
+                        type: 'stop_generation',
+                        conversation_id: state.currentConversationId
+                    });
+                }
+                
+                setTypingState(false);
+            }
+            
+            // Export chat to markdown
+            async function exportChat() {
+                if (!state.currentConversationId) {
+                    showToast('No conversation to export', 'info');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(`/api/conversations/${state.currentConversationId}/export`, {
+                        headers: {
+                            'Accept': 'text/markdown'
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error('Failed to export chat');
+                    }
+                    
+                    const markdown = await response.text();
+                    const blob = new Blob([markdown], { type: 'text/markdown' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    // Create download link
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `pinnacle-copilot-chat-${new Date().toISOString().split('T')[0]}.md`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    
+                    // Clean up
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                    
+                    showToast('Chat exported successfully', 'success');
+                    
+                } catch (error) {
+                    console.error('Error exporting chat:', error);
+                    showToast('Failed to export chat', 'error');
+                }
+            }
+            
+            // Initial scroll to bottom
+            scrollToBottom();
+        </script>
+    </body>
+</body>
+</html>

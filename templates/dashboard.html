@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinnacle Copilot - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://kit.fontawesome.com/your-code.js" crossorigin="anonymous"></script>
+    <script>
+        // Initialize WebSocket connection
+        const ws = new WebSocket('ws://' + window.location.host + '/ws/' + Math.random().toString(36).substr(2, 9));
+        
+        // Chart instances
+        let cpuChart, memoryChart;
+        
+        // Initialize charts
+        function initCharts() {
+            const ctx1 = document.getElementById('cpuChart').getContext('2d');
+            const ctx2 = document.getElementById('memoryChart').getContext('2d');
+            
+            cpuChart = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: Array(30).fill(''),
+                    datasets: [{
+                        label: 'CPU Usage %',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        y: { min: 0, max: 100 }
+                    }
+                }
+            });
+            
+            memoryChart = new Chart(ctx2, {
+                type: 'line',
+                data: {
+                    labels: Array(30).fill(''),
+                    datasets: [{
+                        label: 'Memory Usage %',
+                        data: [],
+                        borderColor: 'rgb(16, 185, 129)',
+                        tension: 0.1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    scales: {
+                        y: { min: 0, max: 100 }
+                    }
+                }
+            });
+        }
+        
+        // Update charts with new data
+        function updateCharts(data) {
+            // Update CPU chart
+            if (cpuChart.data.datasets[0].data.length >= 30) {
+                cpuChart.data.datasets[0].data.shift();
+            }
+            cpuChart.data.datasets[0].data.push(data.cpu_percent);
+            cpuChart.update('none');
+            
+            // Update memory chart
+            if (memoryChart.data.datasets[0].data.length >= 30) {
+                memoryChart.data.datasets[0].data.shift();
+            }
+            memoryChart.data.datasets[0].data.push(data.memory_percent);
+            memoryChart.update('none');
+            
+            // Update stats
+            document.getElementById('cpuUsage').textContent = `${Math.round(data.cpu_percent)}%`;
+            document.getElementById('memoryUsage').textContent = `${Math.round(data.memory_percent)}%`;
+            document.getElementById('diskUsage').textContent = `${Math.round(data.disk_percent)}%`;
+            document.getElementById('uptime').textContent = formatUptime(data.uptime);
+        }
+        
+        // Format uptime
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            return `${days}d ${hours}h ${mins}m`;
+        }
+        
+        // WebSocket event handlers
+        ws.onopen = () => {
+            console.log('Connected to WebSocket');
+            document.getElementById('connectionStatus').classList.replace('bg-red-500', 'bg-green-500');
+        };
+        
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            updateCharts(data);
+        };
+        
+        ws.onclose = () => {
+            console.log('Disconnected from WebSocket');
+            document.getElementById('connectionStatus').classList.replace('bg-green-500', 'bg-red-500');
+        };
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', initCharts);
+    </script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow">
+            <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex justify-between items-center">
+                <h1 class="text-2xl font-bold text-gray-900">Pinnacle Copilot</h1>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center">
+                        <span class="h-3 w-3 rounded-full bg-red-500 mr-2" id="connectionStatus"></span>
+                        <span class="text-sm text-gray-600">System Status</span>
+                    </div>
+                    <a href="/chat" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        AI Chat
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                <!-- CPU Card -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-blue-500 rounded-md p-3">
+                                <i class="fas fa-microchip text-white text-xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">CPU Usage</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="cpuUsage">0%</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Memory Card -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-green-500 rounded-md p-3">
+                                <i class="fas fa-memory text-white text-xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Memory Usage</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="memoryUsage">0%</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Disk Card -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-yellow-500 rounded-md p-3">
+                                <i class="fas fa-hdd text-white text-xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Disk Usage</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="diskUsage">0%</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Uptime Card -->
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <div class="flex items-center">
+                            <div class="flex-shrink-0 bg-purple-500 rounded-md p-3">
+                                <i class="fas fa-clock text-white text-xl"></i>
+                            </div>
+                            <div class="ml-5 w-0 flex-1">
+                                <dl>
+                                    <dt class="text-sm font-medium text-gray-500 truncate">Uptime</dt>
+                                    <dd class="text-2xl font-semibold text-gray-900" id="uptime">0d 0h 0m</dd>
+                                </dl>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <!-- CPU Chart -->
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">CPU Usage</h3>
+                    <div class="h-64">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Memory Chart -->
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Memory Usage</h3>
+                    <div class="h-64">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</body>
+</html>
