@@ -1,15 +1,17 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, scoped_session
-from backend.core.config import settings
+from sqlalchemy.orm import sessionmaker, scoped_session, Session
+from typing import Generator
+from config.settings import settings
 
 # Create database engine
 engine = create_engine(
-    str(settings.DATABASE_URI),
+    str(settings.SQLALCHEMY_DATABASE_URI),
     pool_pre_ping=True,
     pool_size=20,
     max_overflow=10,
     pool_recycle=3600,
+    echo=settings.DEBUG,
 )
 
 # Create session factory
@@ -18,19 +20,27 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # Scoped session for thread safety
 ScopedSession = scoped_session(SessionLocal)
 
-def get_db():
-    """Dependency for getting database session"""
+# Create declarative base
+Base = declarative_base()
+
+def get_db() -> Generator[Session, None, None]:
+    """Dependency for getting database session."""
     db = ScopedSession()
     try:
         yield db
     finally:
         db.close()
 
-def init_db():
-    ""
-    Initialize database tables
-    This should be called during application startup
-    ""
+def dispose_db() -> None:
+    """Close database connections."""
+    ScopedSession.remove()
+    engine.dispose()
+
+def init_db() -> None:
+    """Initialize database tables and create default admin user.
+    
+    This should be called during application startup.
+    """
     from backend.models.base import Base
     from backend.models.user import User
     from backend.models.conversation import Conversation

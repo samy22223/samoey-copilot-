@@ -1,0 +1,56 @@
+groups:
+- name: PinnacleCopilot
+  rules:
+  - alert: HighCPUUsage
+    expr: pinnacle_cpu_usage_percent > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High CPU usage
+      description: CPU usage has been above 80% for 5 minutes
+
+  - alert: HighMemoryUsage
+    expr: pinnacle_memory_usage_percent > 85
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High memory usage
+      description: Memory usage has been above 85% for 5 minutes
+
+  - alert: HighDiskUsage
+    expr: pinnacle_disk_usage_percent > 90
+    for: 5m
+    labels:
+      severity: critical
+    annotations:
+      summary: High disk usage
+      description: Disk usage has been above 90% for 5 minutes
+
+  - alert: HighErrorRate
+    expr: rate(pinnacle_error_total[5m]) > 10
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High error rate
+      description: Error rate is above 10 errors per 5 minutes
+
+  - alert: HighRequestLatency
+    expr: histogram_quantile(0.95, rate(pinnacle_request_latency_seconds_bucket[5m])) > 1
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: High request latency
+      description: 95th percentile request latency is above 1 second
+
+  - alert: TooManyActiveRequests
+    expr: pinnacle_active_requests > 100
+    for: 5m
+    labels:
+      severity: warning
+    annotations:
+      summary: Too many active requests
+      description: Number of active requests is above 100 for 5 minutes

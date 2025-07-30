@@ -1,0 +1,92 @@
+groups:
+  - name: security_alerts
+    rules:
+      - alert: HighThreatLevel
+        expr: security_threat_level > 3
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: High security threat level detected
+          description: Security threat level has been elevated for more than 5 minutes.
+
+      - alert: AISuspiciousActivity
+        expr: rate(ai_security_events_total{type="suspicious"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: High rate of suspicious AI activity
+          description: Detected elevated rate of suspicious AI activities.
+
+      - alert: RateLimitExceeded
+        expr: rate(security_events_total{type="rate_limit_exceeded"}[5m]) > 100
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: Rate limit violations detected
+          description: High number of rate limit violations in the last 5 minutes.
+
+      - alert: PromptInjectionAttempts
+        expr: rate(ai_security_events_total{type="prompt_injection"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: high
+        annotations:
+          summary: Prompt injection attempts detected
+          description: Multiple prompt injection attempts detected in the last 5 minutes.
+
+      - alert: UnauthorizedAccess
+        expr: rate(security_events_total{type="unauthorized_access"}[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Multiple unauthorized access attempts
+          description: High number of unauthorized access attempts detected.
+
+      - alert: ModelAbuse
+        expr: rate(ai_security_events_total{type="model_abuse"}[5m]) > 5
+        for: 2m
+        labels:
+          severity: high
+        annotations:
+          summary: AI model abuse detected
+          description: Multiple AI model abuse attempts detected.
+
+      - alert: SecurityResponseDelay
+        expr: security_response_time_seconds > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Security response time degraded
+          description: Security response time is higher than expected.
+
+      - alert: HighBlockedRequests
+        expr: rate(blocked_requests_total[5m]) > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: High number of blocked requests
+          description: Unusual number of requests being blocked by security measures.
+
+      - alert: DataLeakageAttempt
+        expr: rate(security_events_total{type="data_leakage"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Potential data leakage detected
+          description: Detected attempts to extract sensitive data.
+
+      - alert: SecurityComponentFailure
+        expr: up{job="security_metrics"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: Security component failure
+          description: One or more security components are not functioning properly.

@@ -113,10 +113,26 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
+        """Remove a WebSocket connection from active connections"""
         if websocket in self.active_connections:
             self.active_connections.remove(websocket)
+            logger.info(f"Client disconnected. Active connections: {len(self.active_connections)}")
 
     async def broadcast(self, message: dict):
+        """Broadcast a message to all connected clients"""
+        disconnected = []
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except WebSocketDisconnect:
+                disconnected.append(connection)
+            except Exception as e:
+                logger.error(f"Error broadcasting message: {e}")
+                disconnected.append(connection)
+        
+        # Clean up disconnected clients
+        for conn in disconnected:
+            self.disconnect(conn)
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
@@ -127,35 +143,70 @@ manager = ConnectionManager()
 
 # System monitoring
 async def monitor_system():
+    """Monitor system metrics and broadcast to connected clients"""
     while True:
         try:
-            cpu_percent = psutil.cpu_percent(interval=1)
-            memory = psutil.virtual_memory()
-            disk = psutil.disk_usage('/')
-            
+            # Collect system metrics
             metrics = {
-                "type": "system_metrics",
                 "timestamp": datetime.now().isoformat(),
-                "cpu_percent": cpu_percent,
+                "cpu": {
+                    "percent": psutil.cpu_percent(interval=1),
+                    "count": psutil.cpu_count(),
+                    "freq": psutil.cpu_freq()._asdict() if psutil.cpu_freq() else {},
+                    "stats": psutil.cpu_stats()._asdict(),
+                    "times": psutil.cpu_times_percent()._asdict()
+                },
                 "memory": {
-                    "total": memory.total,
-                    "available": memory.available,
-                    "percent": memory.percent,
-                    "used": memory.used,
-                    "free": memory.free
+                    "virtual": psutil.virtual_memory()._asdict(),
+                    "swap": psutil.swap_memory()._asdict()
                 },
                 "disk": {
-                    "total": disk.total,
-                    "used": disk.used,
-                    "free": disk.free,
-                    "percent": disk.percent
+                    "usage": {path: psutil.disk_usage(path)._asdict() 
+                             for path in psutil.disk_partitions()},
+                    "io": psutil.disk_io_counters(perdisk=True) if psutil.disk_io_counters() else {}
+                },
+                "network": {
+                    "connections": len(psutil.net_connections()),
+                    "io": psutil.net_io_counters()._asdict() if psutil.net_io_counters() else {},
+                    "stats": {name: stats._asdict() 
+                             for name, stats in psutil.net_if_stats().items()}
+                },
+                "processes": {
+                    "count": len(psutil.pids()),
+                    "threads": psutil.Process().num_threads()
                 }
             }
             
-            await manager.broadcast(metrics)
+            # Add load average on Unix-like systems
+            try:
+                metrics["load_avg"] = psutil.getloadavg()
+            except (AttributeError, OSError):
+                pass
+                
+            # Store metrics in key-value store
+            await kv_store.set(f"metrics:{datetime.now().isoformat()}", json.dumps(metrics))
+            
+            # Broadcast metrics to connected clients
+            await manager.broadcast({
+                "type": "system_metrics",
+                "data": metrics
+            })
+            
+            # Log significant changes
+            if metrics["cpu"]["percent"] > 80:
+                logger.warning(f"High CPU usage: {metrics['cpu']['percent']}%")
+            if metrics["memory"]["virtual"]["percent"] > 90:
+                logger.warning(f"High memory usage: {metrics['memory']['virtual']['percent']}%")
             
         except Exception as e:
-            print(f"Error in system monitoring: {e}")
+            logger.error(f"Error monitoring system: {e}")
+            try:
+                await manager.broadcast({
+                    "type": "error",
+                    "data": {"message": "Error monitoring system", "error": str(e)}
+                })
+            except Exception as broadcast_error:
+                logger.error(f"Error broadcasting error message: {broadcast_error}")
         
         await asyncio.sleep(2)
 
@@ -327,35 +378,46 @@ async def health_check():
     test_value = {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
     
     try:
-        # Test key-value store write
-        if not kv_store.put(test_key, test_value):
-            raise RuntimeError("Failed to write to key-value store")
+        # Test key-value store
+        await kv_store.set(test_key, json.dumps(test_value))
+        stored_value = await kv_store.get(test_key)
+        await kv_store.delete(test_key)
         
-        # Test key-value store read
-        result = kv_store.get(test_key)
-        
-        # Clean up
-        kv_store.delete(test_key)
-        
-        if result == test_value:
-            return {
-                "status": "healthy",
-                "kv_store": "operational",
-                "timestamp": datetime.utcnow().isoformat()
-            }
-        else:
-            return {
-                "status": "degraded",
-                "kv_store": "read_write_mismatch",
-                "timestamp": datetime.utcnow().isoformat()
-            }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "kv_store": "error",
-            "error": str(e),
-            "timestamp": datetime.utcnow().isoformat()
+        if stored_value is None:
+            raise Exception("Key-value store write/read test failed")
+            
+        # Check system resources
+        system_status = {
+            "cpu_percent": psutil.cpu_percent(interval=1),
+            "memory_percent": psutil.virtual_memory().percent,
+            "disk_percent": psutil.disk_usage('/').percent
         }
+        
+        # Check service dependencies
+        dependencies_status = {
+            "chat_manager": chat_manager is not None,
+            "websocket_manager": ws_manager is not None,
+            "key_value_store": kv_store is not None
+        }
+        
+        return {
+            "status": "healthy",
+            "timestamp": datetime.utcnow().isoformat(),
+            "system": system_status,
+            "dependencies": dependencies_status,
+            "uptime": time.time() - psutil.boot_time()
+        }
+        
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "status": "unhealthy",
+                "error": str(e),
+                "timestamp": datetime.utcnow().isoformat()
+            }
+        )
 
 @app.post("/api/codegpt")
 async def codegpt_endpoint(request: CodeGPTRequest):
@@ -364,38 +426,58 @@ async def codegpt_endpoint(request: CodeGPTRequest):
     request_data = request.dict()
     
     try:
-        # Store the request in the key-value store for context
-        kv_store.put(f"codegpt/requests/{request_id}", {
-            "timestamp": datetime.utcnow().isoformat(),
-            **request_data
-        })
+        # Log request
+        logger.info(f"Code GPT request received: {request_id}")
+        await kv_store.set(
+            f"codegpt:request:{request_id}",
+            json.dumps({
+                "timestamp": datetime.utcnow().isoformat(),
+                "request": request_data
+            })
+        )
         
-        # Process the request
-        response = await codegpt_integration.process_request(chat_manager, request)
+        # Process request through Code GPT integration
+        response = await codegpt_integration.process_request(request_data)
         
-        # Store the response if successful
-        if response.get('success'):
-            kv_store.put(f"codegpt/responses/{request_id}", {
+        # Store response
+        await kv_store.set(
+            f"codegpt:response:{request_id}",
+            json.dumps({
                 "timestamp": datetime.utcnow().isoformat(),
                 "response": response
             })
+        )
         
-        return response
+        # Broadcast completion to websocket clients
+        await manager.broadcast({
+            "type": "codegpt_completion",
+            "request_id": request_id,
+            "data": response
+        })
+        
+        return {
+            "request_id": request_id,
+            "status": "success",
+            "data": response
+        }
         
     except Exception as e:
-        # Log the error
-        kv_store.put(f"codegpt/errors/{request_id}", {
-            "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
-            "request": request_data
-        })
+        logger.error(f"Code GPT error: {e}")
+        # Store error
+        await kv_store.set(
+            f"codegpt:error:{request_id}",
+            json.dumps({
+                "timestamp": datetime.utcnow().isoformat(),
+                "error": str(e)
+            })
+        )
         
         raise HTTPException(
             status_code=500,
             detail={
-                "success": False,
-                "error": "Failed to process Code GPT request",
-                "request_id": request_id
+                "request_id": request_id,
+                "status": "error",
+                "message": str(e)
             }
         )
 
@@ -410,74 +492,64 @@ async def chat_endpoint(request: Dict[str, Any]):
     }
     """
     try:
-        # Get or create conversation ID
-        conversation_id = request.get("conversation_id") or str(uuid.uuid4())
-        user_message = request.get("message", "")
-        user_id = request.get("user_id", "anonymous")
+        # Validate request
+        if "message" not in request:
+            raise HTTPException(
+                status_code=400,
+                detail="Message is required"
+            )
+            
+        # Generate or get conversation ID
+        conversation_id = request.get("conversation_id", str(uuid.uuid4()))
         
-        if not user_message:
-            raise HTTPException(status_code=400, detail="Message cannot be empty")
-        
-        # Log the user message in the key-value store
-        message_id = str(uuid.uuid4())
-        kv_store.put(f"chat/{conversation_id}/{message_id}", {
-            "role": "user",
-            "content": user_message,
-            "user_id": user_id,
-            "timestamp": datetime.utcnow().isoformat()
-        })
-        
-        # Get conversation history
-        messages = []
-        for key in kv_store.list_keys(f"chat/{conversation_id}/"):
-            message = kv_store.get(key)
-            if message:
-                messages.append({
-                    "role": message.get("role", "user"),
-                    "content": message.get("content", ""),
-                    "timestamp": message.get("timestamp")
-                })
-        
-        # Sort messages by timestamp
-        messages.sort(key=lambda x: x.get("timestamp", ""))
-        
-        # Generate response using the chat manager
-        chat_history = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
-        response = await chat_manager.generate_response(
-            messages=chat_history,
+        # Process message through AI chat manager
+        response = await chat_manager.process_message(
+            message=request["message"],
             conversation_id=conversation_id
         )
         
-        # Log the AI response in the key-value store
-        response_id = str(uuid.uuid4())
-        kv_store.put(f"chat/{conversation_id}/{response_id}", {
-            "role": "assistant",
-            "content": response,
-            "timestamp": datetime.utcnow().isoformat()
+        # Store message and response in chat history
+        timestamp = datetime.utcnow().isoformat()
+        history_key = f"chat:history:{conversation_id}"
+        
+        history_entry = {
+            "timestamp": timestamp,
+            "user_message": request["message"],
+            "ai_response": response,
+            "metadata": {
+                "user_id": request.get("user_id"),
+                "source": request.get("source", "api"),
+                "context": request.get("context", {})
+            }
+        }
+        
+        # Store in key-value store
+        await kv_store.append(history_key, json.dumps(history_entry))
+        
+        # Broadcast to websocket clients if subscribed
+        await manager.broadcast({
+            "type": "chat_message",
+            "conversation_id": conversation_id,
+            "data": history_entry
         })
         
         return {
-            "success": True,
+            "status": "success",
+            "conversation_id": conversation_id,
             "response": response,
-            "conversation_id": conversation_id
+            "timestamp": timestamp
         }
         
     except HTTPException:
         raise
-    except Exception as e:
-        error_id = str(uuid.uuid4())
-        kv_store.put(f"errors/chat/{error_id}", {
-            "timestamp": datetime.utcnow().isoformat(),
-            "error": str(e),
-            "request": request
-        })
         
+    except Exception as e:
+        logger.error(f"Chat error: {e}")
         raise HTTPException(
             status_code=500,
             detail={
-                "success": False,
-                "error": "Failed to process chat message",
-                "error_id": error_id
+                "status": "error",
+                "message": str(e)
             }
         )
 

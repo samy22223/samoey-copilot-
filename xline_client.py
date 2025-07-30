@@ -2,20 +2,28 @@
 import os
 import json
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
 
 from xline import XlineClient
+
+# Load environment variables
+load_dotenv('.env.security')
 
 class PinnacleXlineClient:
     """Xline client wrapper for Pinnacle Copilot."""
     
-    def __init__(self, endpoints: str = "http://127.0.0.1:2379"):
+    def __init__(self, endpoints: str = None, namespace: str = None):
         """Initialize the Xline client.
         
         Args:
-            endpoints: Comma-separated list of Xline server endpoints
+            endpoints: Optional comma-separated list of Xline server endpoints.
+                      Defaults to XLINE_ENDPOINTS environment variable.
+            namespace: Optional namespace prefix for keys.
+                      Defaults to XLINE_NAMESPACE environment variable.
         """
+        endpoints = endpoints or os.getenv('XLINE_ENDPOINTS', 'http://127.0.0.1:2379')
         self.client = XlineClient(endpoints.split(','))
-        self.namespace = "pinnacle/"
+        self.namespace = namespace or os.getenv('XLINE_NAMESPACE', 'pinnacle/')
         
     async def put(self, key: str, value: Any) -> bool:
         """Store a key-value pair in Xline.

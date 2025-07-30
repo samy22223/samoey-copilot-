@@ -1,0 +1,85 @@
+version: '3.8'
+
+services:
+  security-api:
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=DEBUG
+      - SECURITY_ENABLE_AI_PROTECTION=true
+      - SECURITY_ENABLE_MODEL_PROTECTION=true
+      - SECURITY_ENABLE_RATE_LIMITING=true
+      - SECURITY_ENABLE_AUTO_BLOCKING=true
+    volumes:
+      - ./:/app:cached
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+      - "5678:5678"  # For debugging
+    command: python -m debugpy --listen 0.0.0.0:5678 main.py
+
+  redis:
+    command: redis-server --appendonly yes --requirepass your-dev-redis-password
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  prometheus:
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alert.rules:/etc/prometheus/alert.rules
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=your-dev-grafana-password
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+
+  alertmanager:
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - ./monitoring/templates:/etc/alertmanager/templates
+    ports:
+      - "9093:9093"
+
+  kibana:
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elastic:9200
+    ports:
+      - "5601:5601"
+
+  filebeat:
+    volumes:
+      - ./logs:/var/log/app:ro
+      - ./monitoring/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+    environment:
+      - ELASTICSEARCH_HOSTS=elastic:9200
+      - KIBANA_HOST=kibana:5601
+
+  security-dashboard:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - NODE_ENV=development
+    depends_on:
+      - security-api
+
+volumes:
+  redis-data:
+  prometheus-data:
+  grafana-data:

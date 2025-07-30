@@ -1,23 +1,68 @@
 # Pinnacle Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/yourusername/pinnacle-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/yourusername/pinnacle-copilot/actions)
-[![Docker Pulls](https://img.shields.io/docker/pulls/yourusername/pinnacle-copilot)](https://hub.docker.com/r/yourusername/pinnacle-copilot)
+[![Build Status](https://github.com/samy22223/samoey-copilot/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/samy22223/samoey-copilot/actions)
 
-Pinnacle Copilot is an AI-powered development assistant that helps you write better code faster with real-time suggestions, automated fixes, and intelligent code analysis.
+An AI-powered development assistant with an autonomous AI team that helps you write better code faster with real-time suggestions, automated fixes, and intelligent code analysis.
 
-## 🚀 Features
-  - System information and health status
+## 🤖 AI Team Features
 
+### 👥 Team Roles
+1. **AI Chief Architect**
+   - Designs system architecture
+   - Selects technology stack
+   - Plans integrations
+   
+2. **Full-Stack Dev Agents**
+   - Write production-ready code
+   - Implement features
+   - Optimize performance
+
+3. **MLOps & AI Engineer**
+   - Integrates AI models
+   - Optimizes AI performance
+   - Manages model deployments
+
+4. **QA & Security Agent**
+   - Runs automated tests
+   - Performs security audits
+   - Ensures code quality
+
+5. **Product Manager**
+   - Defines features
+   - Sets priorities
+   - Manages roadmap
+
+6. **UI/UX Designer**
+   - Creates responsive designs
+   - Implements TailwindCSS
+   - Ensures great UX
+
+7. **Growth Hacker**
+   - Integrates analytics
+   - Optimizes SEO
+   - Implements growth features
+
+8. **Documentation Agent**
+   - Generates documentation
+   - Creates user guides
+   - Maintains API docs
+
+## 🚀 Core Features
 - **AI-Powered Chat Interface**
-  - Local and remote LLM support (including OpenAI, Hugging Face, and custom models)
-  - Context-aware conversations with memory
-  - Support for multiple languages
+  - Local and remote LLM support
+  - Context-aware conversations
   - Code execution and analysis
+  
+- **Autonomous Development**
+  - Automated code generation
+  - Intelligent refactoring
+  - Bug detection and fixing
 
-- **Distributed Key-Value Store**
-  - Built on etcd3 for reliable distributed storage
-  - High availability and fault tolerance
+- **Security & Performance**
+  - Built-in security headers
+  - Rate limiting
+  - Performance monitoring
   - Real-time data synchronization
 
 - **Developer Tools**
