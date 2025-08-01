@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { Inter, Roboto_Mono } from 'next/font/google';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/toaster';
 import { cn } from '@/lib/utils';
+import { Sidebar } from '@/components/ui/sidebar';
+import { MainNav } from '@/components/ui/main-nav';
+import { SiteHeader } from '@/components/ui/site-header';
+import { UserNav } from '@/components/ui/user-nav';
 import './globals.css';
 
 const inter = Inter({
@@ -29,12 +32,12 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#000000' },
+    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
   ],
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  userScalable: false,
+  userScalable: true,
   viewportFit: 'cover',
 };
 
@@ -48,13 +51,18 @@ export default function RootLayout({
       <head>
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#ffffff" />
+        <meta name="description" content="AI-powered coding assistant and automation platform" />
       </head>
       <body
         className={cn(
           'min-h-screen bg-background font-sans antialiased',
           inter.variable,
-          robotoMono.variable
+          robotoMono.variable,
+          'flex flex-col'
         )}
       >
         <ThemeProvider
@@ -63,7 +71,20 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <div className="flex flex-col h-screen">
+            <SiteHeader>
+              <MainNav className="mx-6" />
+              <div className="flex items-center space-x-4">
+                <UserNav />
+              </div>
+            </SiteHeader>
+            <div className="flex flex-1 overflow-hidden">
+              <Sidebar />
+              <main className="flex-1 overflow-y-auto p-6">
+                {children}
+              </main>
+            </div>
+          </div>
           <Toaster />
           <Script src="/scripts/register-sw.js" strategy="afterInteractive" />
         </ThemeProvider>

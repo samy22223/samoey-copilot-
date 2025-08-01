@@ -33,8 +33,8 @@ async def init_db(db: Session) -> None:
             db.add(admin_user)
             db.commit()
             logger.info("Created default admin user")
-        except Exception as e:
-            logger.error(f"Error creating default admin user: {e}")
-            db.rollback()
-    else:
-        logger.info("Database already initialized with admin user")
+        else:
+            logger.info("Database already initialized with admin user")
+    except Exception as e:
+        logger.error(f"Error initializing database: {e}")
+        db.rollback()

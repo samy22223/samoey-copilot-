@@ -1,0 +1,38 @@
+.ai-config-panel {
+  padding: 1rem;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  max-width: 600px;
+  margin: 1rem auto;
+}
+
+.ai-config-panel h2 {
+  margin-bottom: 1rem;
+  color: #10a37f;
+  text-align: center;
+}
+
+.config-section {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #eee;
+  border-radius: 0.5rem;
+}
+
+.config-section h3 {
+  margin-top: 0;
+  font-size: 1rem;
+}
+
+.config-section select {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  border: 1px solid #ddd;
+  font-size: 0.9rem;
+}
+
+.config-section label {
+  display: block;
+}

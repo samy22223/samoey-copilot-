@@ -1,0 +1,55 @@
+# Core
+fastapi==0.104.1
+uvicorn==0.24.0
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-dotenv==1.0.0
+pydantic==2.4.2
+pydantic-settings==2.0.3
+
+# Database
+sqlalchemy==2.0.23
+alembic==1.12.1
+psycopg2-binary==2.9.9
+
+# AI/ML
+openai==1.3.0
+numpy==1.26.0
+pandas==2.1.1
+
+# Utils
+python-dateutil==2.8.2
+python-multipart==0.0.6
+email-validator==2.1.0.post1
+
+# Async
+anyio==3.7.1
+httpx==0.25.0
+
+# Security
+cryptography==41.0.4
+
+# Testing
+pytest==7.4.2
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Development
+black==23.9.1
+isort==5.12.0
+mypy==1.5.1
+ruff==0.1.4
+
+# Monitoring and Logging
+sentry-sdk==1.31.0
+python-json-logger==2.0.7
+
+# Caching
+redis==5.0.1
+
+# Background Tasks
+celery==5.3.4
+
+# Data Validation
+email-validator==2.1.0.post1
