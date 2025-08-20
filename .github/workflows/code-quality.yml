@@ -1,0 +1,156 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+    - name: Run Black code formatter
+      run: |
+        black --check --diff app/
+      continue-on-error: true
+
+    - name: Run Flake8 linter
+      run: |
+        flake8 app/ --format=junit-xml --output-file=flake8-results.xml
+      continue-on-error: true
+
+    - name: Run MyPy type checker
+      run: |
+        mypy app/ --junit-xml=mypy-results.xml
+      continue-on-error: true
+
+    - name: Run Pylint
+      run: |
+        pylint app/ --output-format=pylint_junit.JUnitReporter --exit-zero > pylint-results.xml
+      continue-on-error: true
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: Run ESLint
+      working-directory: ./frontend
+      run: |
+        npm run lint -- --format junit --output-file eslint-results.xml
+      continue-on-error: true
+
+    - name: Run Prettier
+      working-directory: ./frontend
+      run: |
+        npm run format:check
+      continue-on-error: true
+
+    - name: Run TypeScript check
+      working-directory: ./frontend
+      run: |
+        npx tsc --noEmit
+      continue-on-error: true
+
+    - name: Upload code quality reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-reports
+        path: |
+          flake8-results.xml
+          mypy-results.xml
+          pylint-results.xml
+          frontend/eslint-results.xml
+
+    - name: Generate code quality summary
+      run: |
+        echo "# Code Quality Report" > code-quality-summary.md
+        echo "## Analysis Date: $(date)" >> code-quality-summary.md
+        echo "" >> code-quality-summary.md
+        echo "### Python Code Quality" >> code-quality-summary.md
+        echo "- **Black**: Code formatting check" >> code-quality-summary.md
+        echo "- **Flake8**: Style guide enforcement" >> code-quality-summary.md
+        echo "- **MyPy**: Type checking" >> code-quality-summary.md
+        echo "- **Pylint**: Code analysis" >> code-quality-summary.md
+        echo "" >> code-quality-summary.md
+        echo "### Frontend Code Quality" >> code-quality-summary.md
+        echo "- **ESLint**: JavaScript/TypeScript linting" >> code-quality-summary.md
+        echo "- **Prettier**: Code formatting" >> code-quality-summary.md
+        echo "- **TypeScript**: Type checking" >> code-quality-summary.md
+
+    - name: Upload code quality summary
+      uses: actions/upload-artifact@v3
+      with:
+        name: code-quality-summary
+        path: code-quality-summary.md
+
+    - name: Comment code quality results on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const summary = fs.readFileSync('code-quality-summary.md', 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: `## Code Quality Results\n\n${summary}`
+          });
+
+  sonarqube-scan:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install frontend dependencies
+      working-directory: ./frontend
+      run: npm ci
+
+    - name: SonarQube Scan
+      uses: sonarqube-quality-gate-action@master
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

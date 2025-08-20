@@ -1,0 +1,140 @@
+name: Backup and Recovery
+
+on:
+  schedule:
+    - cron: '0 4 * * *'  # Daily at 4 AM
+  workflow_dispatch:
+
+jobs:
+  database-backup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install psycopg2-binary boto3
+
+    - name: Create database backup
+      run: |
+        python scripts/backup_database.py
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_BUCKET_NAME: ${{ secrets.AWS_BACKUP_BUCKET }}
+        BACKUP_NAME: "samoey-copilot-db-$(date +%Y%m%d-%H%M%S).sql"
+
+    - name: Upload backup to S3
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Copy backup to S3
+      run: |
+        aws s3 cp /tmp/backup.sql s3://${{ secrets.AWS_BACKUP_BUCKET }}/database/$(date +%Y-%m-%d)/samoey-copilot-db-$(date +%Y%m%d-%H%M%S).sql
+
+    - name: Clean old backups (keep last 30 days)
+      run: |
+        aws s3 ls s3://${{ secrets.AWS_BACKUP_BUCKET }}/database/ --recursive | while read -r line; do
+          createDate=$(echo $line | awk '{print $1" "$2}')
+          createDate=$(date -d "$createDate" +%s)
+          olderThan=$(date -d "30 days ago" +%s)
+          if [[ $createDate -lt $olderThan ]]; then
+            fileName=$(echo $line | awk '{print $4}')
+            if [[ $fileName != "" ]]; then
+              aws s3 rm "s3://${{ secrets.AWS_BACKUP_BUCKET }}/$fileName"
+            fi
+          fi
+        done
+
+  files-backup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Create files backup
+      run: |
+        tar -czf /tmp/files-backup.tar.gz \
+          --exclude=node_modules \
+          --exclude=.git \
+          --exclude=frontend/node_modules \
+          --exclude=frontend/.next \
+          --exclude=__pycache__ \
+          --exclude=*.pyc \
+          .
+
+    - name: Upload files backup to S3
+      uses: aws-actions/configure-aws-credentials@v2
+      with:
+        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        aws-region: us-east-1
+
+    - name: Copy files backup to S3
+      run: |
+        aws s3 cp /tmp/files-backup.tar.gz s3://${{ secrets.AWS_BACKUP_BUCKET }}/files/$(date +%Y-%m-%d)/samoey-copilot-files-$(date +%Y%m%d-%H%M%S).tar.gz
+
+    - name: Clean old file backups (keep last 7 days)
+      run: |
+        aws s3 ls s3://${{ secrets.AWS_BACKUP_BUCKET }}/files/ --recursive | while read -r line; do
+          createDate=$(echo $line | awk '{print $1" "$2}')
+          createDate=$(date -d "$createDate" +%s)
+          olderThan=$(date -d "7 days ago" +%s)
+          if [[ $createDate -lt $olderThan ]]; then
+            fileName=$(echo $line | awk '{print $4}')
+            if [[ $fileName != "" ]]; then
+              aws s3 rm "s3://${{ secrets.AWS_BACKUP_BUCKET }}/$fileName"
+            fi
+          fi
+        done
+
+  backup-report:
+    runs-on: ubuntu-latest
+    needs: [database-backup, files-backup]
+
+    steps:
+    - name: Generate backup report
+      run: |
+        echo "# Backup Report" > backup-report.md
+        echo "## Backup Date: $(date)" >> backup-report.md
+        echo "" >> backup-report.md
+        echo "### Database Backup" >> backup-report.md
+        echo "- Status: ✅ Completed" >> backup-report.md
+        echo "- Location: S3://${{ secrets.AWS_BACKUP_BUCKET }}/database/$(date +%Y-%m-%d)/" >> backup-report.md
+        echo "- Retention: 30 days" >> backup-report.md
+        echo "" >> backup-report.md
+        echo "### Files Backup" >> backup-report.md
+        echo "- Status: ✅ Completed" >> backup-report.md
+        echo "- Location: S3://${{ secrets.AWS_BACKUP_BUCKET }}/files/$(date +%Y-%m-%d)/" >> backup-report.md
+        echo "- Retention: 7 days" >> backup-report.md
+        echo "" >> backup-report.md
+        echo "### Backup Summary" >> backup-report.md
+        echo "- Total Size: $(du -sh /tmp/backup.sql /tmp/files-backup.tar.gz | cut -f1 | tr '\n' ' ')" >> backup-report.md
+        echo "- Compression: Enabled" >> backup-report.md
+        echo "- Encryption: Enabled (S3 server-side encryption)" >> backup-report.md
+
+    - name: Upload backup report
+      uses: actions/upload-artifact@v3
+      with:
+        name: backup-report
+        path: backup-report.md
+
+    - name: Notify backup completion
+      uses: 8398a7/action-slack@v3
+      with:
+        status: success
+        channel: '#backups'
+        webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK }}

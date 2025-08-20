@@ -1,0 +1,417 @@
+{
+  "folders": [
+    {
+      "name": "Samoey Copilot - Root",
+      "path": "."
+    },
+    {
+      "name": "Frontend",
+      "path": "./frontend"
+    },
+    {
+      "name": "Backend",
+      "path": "./app"
+    },
+    {
+      "name": "AI Team",
+      "path": "./ai_team"
+    },
+    {
+      "name": "Automation",
+      "path": "./automation"
+    },
+    {
+      "name": "Scripts",
+      "path": "./scripts"
+    },
+    {
+      "name": "Monitoring",
+      "path": "./monitoring"
+    },
+    {
+      "name": "Tests",
+      "path": "./tests"
+    }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.formatOnPaste": true,
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
+    },
+    "editor.suggestSelection": "first",
+    "editor.wordWrap": "on",
+    "editor.renderWhitespace": "boundary",
+    "editor.renderControlCharacters": true,
+    "editor.renderLineHighlight": "all",
+    "editor.minimap.enabled": true,
+    "editor.bracketPairColorization.enabled": true,
+    "editor.guides.bracketPairs": "active",
+    "editor.quickSuggestions": {
+      "strings": true,
+      "comments": true,
+      "other": true
+    },
+    "editor.acceptSuggestionOnCommitCharacter": true,
+    "editor.acceptSuggestionOnEnter": "on",
+    "editor.tabCompletion": "on",
+    "editor.suggest.showStatusBar": true,
+    "editor.suggest.preview": true,
+    "editor.parameterHints.enabled": true,
+    "editor.autoClosingBrackets": "always",
+    "editor.autoClosingQuotes": "always",
+    "editor.stickyScroll.enabled": true,
+
+    "files.autoSave": "afterDelay",
+    "files.autoSaveDelay": 1000,
+    "files.trimTrailingWhitespace": true,
+    "files.insertFinalNewline": true,
+    "files.associations": {
+      "*.css": "tailwindcss",
+      "*.scss": "tailwindcss",
+      "*.less": "tailwindcss",
+      "*.html": "html",
+      "*.js": "javascript",
+      "*.ts": "typescript",
+      "*.tsx": "typescriptreact",
+      "*.jsx": "javascriptreact",
+      "*.py": "python",
+      "*.json": "json",
+      "*.yml": "yaml",
+      "*.yaml": "yaml",
+      "*.toml": "toml",
+      "*.ini": "ini",
+      "*.md": "markdown",
+      "*.mdx": "markdown",
+      "*.dockerfile": "dockerfile"
+    },
+
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/bower_components": true,
+      "**/dist": true,
+      "**/build": true,
+      "**/.next": true,
+      "**/out": true,
+      "**/.git": true,
+      "**/.pytest_cache": true,
+      "**/__pycache__": true,
+      "**/.coverage": true,
+      "**/venv": true,
+      "**/env": true,
+      "**/.env": true,
+      "**/coverage": true,
+      "**/.nyc_output": true,
+      "**/.vscode-test": true
+    },
+
+    "liveServer.settings.port": 3001,
+    "liveServer.settings.root": "/frontend",
+    "liveServer.settings.CustomBrowser": "chrome",
+    "liveServer.settings.host": "localhost",
+    "liveServer.settings.noBrowserWarning": true,
+    "liveServer.settings.ignoreFiles": [
+      "**/node_modules/**",
+      "**/.vscode/**",
+      "**/.git/**",
+      "**/.next/**",
+      "**/dist/**",
+      "**/build/**",
+      "**/*.pyc",
+      "**/__pycache__/**"
+    ],
+    "liveServer.settings.donotShowInfoMsg": true,
+    "liveServer.settings.donotVerifyTags": true,
+    "liveServer.settings.fullReload": true,
+    "liveServer.settings.wait": 1000,
+    "liveServer.settings.mount": [
+      ["/frontend", "/"],
+      ["/app/static", "/static"]
+    ],
+    "liveServer.settings.proxy": {
+      "enable": true,
+      "baseUri": "/api",
+      "proxyUri": "http://localhost:8000"
+    },
+
+    "browserPreview.startUrl": "http://localhost:3000",
+    "browserPreview.port": 3000,
+    "browserPreview.host": "localhost",
+    "browserPreview.chromeExecutable": null,
+    "browserPreview.defaultZoomLevel": 0,
+    "browserPreview.proxy": "http://localhost:8000",
+    "browserPreview.ignoreHttpsErrors": true,
+
+    "workbench.colorTheme": "Night Owl",
+    "workbench.iconTheme": "material-icon-theme",
+    "workbench.sideBar.location": "left",
+    "workbench.statusBar.visible": true,
+    "workbench.panel.defaultLocation": "bottom",
+    "workbench.editor.enablePreview": true,
+    "workbench.editor.enablePreviewFromQuickOpen": true,
+    "workbench.editor.showTabs": "multiple",
+    "workbench.editor.tabCloseButton": "right",
+    "workbench.editor.tabSizing": "fit",
+    "workbench.editor.wrap": true,
+    "workbench.editor.limit.enabled": true,
+    "workbench.editor.limit.perEditorGroup": 10,
+    "workbench.editor.highlightModifiedTabs": true,
+    "workbench.editor.closeOnFileDelete": true,
+    "workbench.editor.revealIfOpen": true,
+    "workbench.startupEditor": "none",
+    "workbench.welcomePage.walkthroughs.openOnInstall": false,
+    "workbench.editor.tabActionLocation": "right"
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Launch Frontend (Next.js Dev)",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "npm run dev",
+        "cwd": "${workspaceFolder}/frontend",
+        "presentation": {
+          "hidden": false,
+          "group": "frontend",
+          "order": 1
+        },
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "^(.*):(\\d+):(\\d+)\\s+(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Compiling.*$",
+            "endsPattern": "^.*Compiled.*$|^.*Failed.*$"
+          }
+        }
+      },
+      {
+        "name": "Launch Backend (FastAPI)",
+        "type": "python",
+        "request": "launch",
+        "module": "uvicorn",
+        "args": [
+          "app.main:app",
+          "--host",
+          "0.0.0.0",
+          "--port",
+          "8000",
+          "--reload"
+        ],
+        "cwd": "${workspaceFolder}/app",
+        "console": "integratedTerminal",
+        "presentation": {
+          "hidden": false,
+          "group": "backend",
+          "order": 1
+        },
+        "python": "${command:python.interpreterPath}",
+        "env": {
+          "PYTHONPATH": "${workspaceFolder}/app",
+          "ENVIRONMENT": "development"
+        }
+      },
+      {
+        "name": "Debug Frontend (Chrome)",
+        "type": "chrome",
+        "request": "launch",
+        "url": "http://localhost:3000",
+        "webRoot": "${workspaceFolder}/frontend",
+        "sourceMaps": true,
+        "presentation": {
+          "hidden": false,
+          "group": "frontend",
+          "order": 2
+        }
+      },
+      {
+        "name": "Launch Full Stack (Dev Mode)",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "npm run dev",
+        "cwd": "${workspaceFolder}",
+        "presentation": {
+          "hidden": false,
+          "group": "fullstack",
+          "order": 1
+        },
+        "problemMatcher": []
+      }
+    ],
+    "compounds": [
+      {
+        "name": "Debug Full Stack",
+        "configurations": [
+          "Launch Backend (FastAPI)",
+          "Launch Frontend (Next.js Dev)"
+        ],
+        "presentation": {
+          "hidden": false,
+          "group": "fullstack",
+          "order": 2
+        },
+        "stopAll": true
+      }
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Start Real-Time Preview",
+        "type": "shell",
+        "command": "${workspaceFolder}/scripts/start-realtime-preview.sh",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Start Frontend Dev Server",
+        "type": "shell",
+        "command": "npm run dev",
+        "options": {
+          "cwd": "${workspaceFolder}/frontend"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated"
+        },
+        "problemMatcher": {
+          "pattern": {
+            "regexp": "^(.*):(\\d+):(\\d+)\\s+(warning|error):\\s+(.*)$",
+            "file": 1,
+            "line": 2,
+            "column": 3,
+            "severity": 4,
+            "message": 5
+          },
+          "background": {
+            "activeOnStart": true,
+            "beginsPattern": "^.*Compiling.*$",
+            "endsPattern": "^.*Compiled.*$|^.*Failed.*$"
+          }
+        }
+      },
+      {
+        "label": "Start Backend Dev Server",
+        "type": "shell",
+        "command": "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+        "options": {
+          "cwd": "${workspaceFolder}/app"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Open Live Server",
+        "type": "shell",
+        "command": "npx live-server --port=3001 --host=localhost --root=/frontend --no-browser",
+        "options": {
+          "cwd": "${workspaceFolder}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "dedicated"
+        },
+        "problemMatcher": []
+      }
+    ]
+  },
+  "extensions": {
+    "recommendations": [
+      "ritwickdey.LiveServer",
+      "ms-vsliveshare.vsliveshare",
+      "auchenberg.vscode-browser-preview",
+      "yosiayalon.vscode-preview-server",
+      "ms-vscode.live-server",
+      "wix.vscode-import-cost",
+      "christian-kohler.path-intellisense",
+      "msjsdiag.vscode-react-native",
+      "ms-vscode.vscode-typescript-next",
+      "pranaygp.vscode-css-peek",
+      "formulahendry.auto-rename-tag",
+      "Zignd.html-css-class-completion",
+      "bradlc.vscode-tailwindcss",
+      "esbenp.prettier-vscode",
+      "dbaeumer.vscode-eslint",
+      "ms-python.python",
+      "ms-python.vscode-pylance",
+      "ms-python.test-adapter-python",
+      "ms-python.debugpy",
+      "ms-toolsai.jupyter",
+      "ms-python.black-formatter",
+      "ms-python.isort",
+      "kevinrose.vsc-python-indent",
+      "njpwerner.autodocstring",
+      "donjayamanne.python-environment-manager",
+      "ms-azuretools.vscode-docker",
+      "ms-vscode-remote.remote-containers",
+      "ms-kubernetes-tools.vscode-kubernetes-tools",
+      "redhat.vscode-yaml",
+      "SonarSource.sonarlint-vscode",
+      "streetsidesoftware.code-spell-checker",
+      "eamodio.gitlens",
+      "usernamehw.errorlens",
+      "ms-vscode.vscode-json",
+      "redhat.vscode-xml",
+      "shd101wyy.markdown-all-in-one",
+      "mtxr.sqltools",
+      "mtxr.sqltools-driver-pg",
+      "mtxr.sqltools-driver-redis",
+      "humao.rest-client",
+      "rangav.vscode-thunder-client",
+      "Prisma.prisma",
+      "cweijan.vscode-redis-client",
+      "github.copilot",
+      "github.copilot-chat",
+      "TabNine.tabnine-vscode",
+      "formulahendry.code-runner",
+      "alefragnani.Bookmarks",
+      "Gruntfuggly.todo-tree",
+      "wakatime.vscode-wakatime",
+      "vscode-icons-team.vscode-icons",
+      "ms-vscode.vscode-js-debug",
+      "ms-playwright.playwright",
+      "hbenl.vscode-test-explorer",
+      "ms-vscode.test-adapter-converter",
+      "mhutchie.git-graph",
+      "donjayamanne.githistory",
+      "waderyan.gitblame",
+      "ms-vscode.vscode-terminal",
+      "Tyriar.vscode-shellcheck",
+      "timonwong.shellcheck",
+      "Equinusocio.vsc-material-theme",
+      "PKief.material-icon-theme",
+      "drcika.apc-extension"
+    ]
+  }
+}
