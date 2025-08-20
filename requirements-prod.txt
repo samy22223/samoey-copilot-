@@ -1,0 +1,35 @@
+# Production requirements for Samoey Copilot
+-r requirements.txt
+
+# Production Server
+gunicorn==21.2.0
+uvicorn[standard]==0.24.0
+
+# Production Monitoring
+sentry-sdk==1.31.0
+prometheus-client==0.19.0
+structlog==23.2.0
+
+# Production Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+cryptography==41.0.4
+
+# Production Database
+psycopg2-binary==2.9.9
+redis==5.0.1
+
+# Production Caching
+memcached==1.59
+
+# Production Logging
+python-json-logger==2.0.7
+colorlog==6.7.0
+
+# Production Utilities
+psutil==5.9.6
+watchdog==3.0.0
+
+# Production Performance
+uvloop==0.19.0
+httptools==0.6.1

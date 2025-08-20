@@ -23,7 +23,7 @@ export function formatBytes(
   opts: {
     decimals?: number
     sizeType?: "decimal" | "binary"
-  } = {}") {
+  } = {}) {
   const { decimals = 0, sizeType = "decimal" } = opts
   const sizes = ["Bytes", "KB", "MB", "GB", "TB"]
   const k = sizeType === "decimal" ? 1000 : 1024

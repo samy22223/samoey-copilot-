@@ -12,10 +12,10 @@ export default function Home() {
           </div>
         </div>
         
-        <h1 className="text-4xl font-bold tracking-tight mb-6">Welcome to Pinnacle Copilot</h1>
+        <h1 className="text-4xl font-bold tracking-tight mb-6">Welcome to Samoey Copilot</h1>
         
         <p className="text-xl text-muted-foreground mb-8">
-          Your AI-powered coding assistant for building better software, faster.
+          Your unified AI-powered development platform with autonomous agents and intelligent tools.
         </p>
         
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mb-12">

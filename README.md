@@ -1,9 +1,9 @@
-# Pinnacle Copilot
+# Samoey Copilot
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://github.com/samy22223/samoey-copilot/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/samy22223/samoey-copilot/actions)
 
-An AI-powered development assistant with an autonomous AI team that helps you write better code faster with real-time suggestions, automated fixes, and intelligent code analysis.
+A unified AI-powered development platform with autonomous agents and intelligent tools that helps you write better code faster with real-time suggestions, automated fixes, and intelligent code analysis.
 
 ## 🤖 AI Team Features
 
@@ -12,7 +12,7 @@ An AI-powered development assistant with an autonomous AI team that helps you wr
    - Designs system architecture
    - Selects technology stack
    - Plans integrations
-   
+
 2. **Full-Stack Dev Agents**
    - Write production-ready code
    - Implement features
@@ -53,7 +53,7 @@ An AI-powered development assistant with an autonomous AI team that helps you wr
   - Local and remote LLM support
   - Context-aware conversations
   - Code execution and analysis
-  
+
 - **Autonomous Development**
   - Automated code generation
   - Intelligent refactoring
@@ -78,14 +78,15 @@ An AI-powered development assistant with an autonomous AI team that helps you wr
 - Python 3.8 or higher
 - Docker and Docker Compose (recommended)
 - Git
+- Node.js 18 or higher
 - macOS, Linux, or Windows (WSL2 recommended for Windows)
 
 ### Quick Start with Docker (Recommended)
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/pinnacle-copilot.git
-   cd pinnacle-copilot
+   git clone https://github.com/samy22223/samoey-copilot.git
+   cd samoey-copilot
    ```
 
 2. Start the services:
@@ -94,33 +95,34 @@ An AI-powered development assistant with an autonomous AI team that helps you wr
    ```
 
 3. Access the application:
-   - Web UI: http://localhost:8000
+   - Web UI: http://localhost:3000
    - API Docs: http://localhost:8000/docs
-   - PGAdmin: http://localhost:5050 (username: admin@pinnacle.local, password: admin)
+   - PGAdmin: http://localhost:5050 (username: admin@samoey.local, password: admin)
    - Redis Commander: http://localhost:8081
 
 ### Manual Installation
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/pinnacle-copilot.git
-   cd pinnacle-copilot
+   git clone https://github.com/samy22223/samoey-copilot.git
+   cd samoey-copilot
    ```
 
 2. Run the setup script:
    ```bash
-   chmod +x setup.sh
-   ./setup.sh
+   chmod +x scripts/setup.sh
+   ./scripts/setup.sh
    ```
-   For development, use: `./setup.sh --dev`
+   For development, use: `./scripts/setup.sh --dev`
 
 3. Start the application:
    ```bash
-   source venv/bin/activate
-   uvicorn pinnacle_copilot:app --reload
+   npm run dev
    ```
 
-4. Access the application at http://localhost:8000
+4. Access the application:
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:8000
 
 ## 🎯 Key Components
 
@@ -128,13 +130,12 @@ An AI-powered development assistant with an autonomous AI team that helps you wr
 - **AI Integration**: LangChain, Transformers, and OpenAI
 - **Database**: PostgreSQL with SQLAlchemy ORM
 - **Caching**: Redis
-- **Key-Value Store**: etcd3
-- **Frontend**: HTML5, JavaScript, and WebSockets
+- **Frontend**: Next.js with TypeScript and TailwindCSS
 - **Monitoring**: Built-in system metrics and health checks
 
 ## 📚 Documentation
 
-For detailed documentation, please visit our [documentation site](https://pinnacle-copilot.readthedocs.io/).
+For detailed documentation, please visit the project wiki and check the `docs/` directory.
 
 ## 🤝 Contributing
 
@@ -151,13 +152,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Configuration
 
-Customize Pinnacle Copilot by editing the configuration files in the `config/` directory.
+Customize Samoey Copilot by editing the configuration files in the `app/config/` directory.
 
-### `config/custom_instructions.json`
+### `app/config/custom_instructions.json`
 
 ```json
 {
-    "system_prompt": "You are Pinnacle Copilot, an advanced AI assistant.",
+    "system_prompt": "You are Samoey Copilot, an advanced AI assistant.",
     "language": "en",
     "tone": "friendly",
     "knowledge_sources": ["system"]
@@ -189,25 +190,24 @@ The application provides a REST API and WebSocket interface for integration with
 
 ### Common Issues
 
-1. **Port 8000 is already in use**
+1. **Port 3000 or 8000 is already in use**
    ```bash
-   # Find and stop the process using port 8000
+   # Find and stop the process using the ports
+   lsof -i :3000
    lsof -i :8000
    kill -9 <PID>
    ```
 
 2. **Missing Dependencies**
    ```bash
-   # Activate the virtual environment
-   source venv/bin/activate
-   
-   # Install missing dependencies
-   pip install -r requirements.txt
+   # Install all dependencies
+   npm run install:all
    ```
 
 3. **AI Features Not Working**
    - Make sure you've installed the AI/ML dependencies
    - Check the console for any error messages
+   - Verify your HUGGINGFACE_TOKEN environment variable
 
 ## License
 
@@ -219,4 +219,4 @@ Contributions are welcome! Please read our [contributing guidelines](CONTRIBUTIN
 
 ## Support
 
-For support, please open an issue on our [GitHub repository](https://github.com/yourusername/pinnacle-copilot/issues).
+For support, please open an issue on our [GitHub repository](https://github.com/samy22223/samoey-copilot/issues).

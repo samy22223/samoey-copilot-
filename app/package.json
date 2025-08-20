@@ -1,0 +1,25 @@
+{
+  "name": "samoey-copilot-backend",
+  "version": "1.0.0",
+  "description": "Backend API server for Samoey Copilot",
+  "main": "main.py",
+  "scripts": {
+    "dev": "uvicorn main:app --reload --host 0.0.0.0 --port 8000",
+    "start": "uvicorn main:app --host 0.0.0.0 --port 8000",
+    "test": "pytest",
+    "lint": "black . && flake8 .",
+    "format": "black ."
+  },
+  "keywords": [
+    "ai",
+    "copilot",
+    "fastapi",
+    "python",
+    "backend",
+    "api"
+  ],
+  "author": "Samoey",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {}
+}

@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send, Loader2, Paperclip, X, Reply, XCircle } from 'lucide-react';
+import { Send, Loader2, Paperclip, X, Reply } from 'lucide-react';
 import { useChat } from '@/contexts/ChatContext';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -11,9 +11,6 @@ type FilePreview = {
   file: File;
   preview: string;
 };
-
-// Maximum height for the textarea (in rows)
-const MAX_ROWS = 8;
 
 interface ChatInputProps {
   replyTo?: {
@@ -93,9 +90,6 @@ export const ChatInput: React.FC<ChatInputProps> = ({
     try {
       setIsUploading(true);
       
-      // In a real app, upload files here
-      // const uploadedFiles = await uploadFiles(files);
-      
       // Send message with file references and optional reply
       sendMessage(message, replyTo?.id);
       
@@ -112,13 +106,12 @@ export const ChatInput: React.FC<ChatInputProps> = ({
       setTimeout(() => textareaRef.current?.focus(), 0);
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Show error to user here
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     // Only handle Enter key when not composing (e.g., in IME) and not holding Shift
     if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
       e.preventDefault();
@@ -236,7 +229,7 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             onCompositionEnd={handleCompositionEnd}
             onKeyDown={handleKeyDown}
             onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
+            onBlur={handleBlur}
             placeholder={isConnected ? "Type a message..." : "Connecting..."}
             className={cn(
               "min-h-[40px] max-h-[200px] resize-none pr-10 transition-all",
@@ -245,53 +238,13 @@ export const ChatInput: React.FC<ChatInputProps> = ({
             disabled={!isConnected || isUploading}
             rows={1}
           />
-            <span className="sr-only">Attach file</span>
-          </Button>
-          
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
-            multiple
-            accept="image/*,.pdf,.doc,.docx,.txt"
-          />
-          
-          <div className="flex-1 relative">
-            <Textarea
-              ref={textareaRef}
-              value={message}
-              onChange={handleInput}
-              onCompositionStart={handleCompositionStart}
-              onCompositionEnd={handleCompositionEnd}
-              onKeyDown={handleKeyDown}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder={isConnected ? "Type a message..." : "Connecting..."}
-              className={cn(
-                "min-h-[40px] max-h-[200px] resize-none pr-10 transition-all",
-                isFocused && "ring-2 ring-ring ring-offset-2"
-              )}
-              disabled={!isConnected || isUploading}
-              rows={1}
-            />
-          </div>
-          
-          <Button 
-            type="button"
-            onClick={handleSubmit} 
-            size="icon" 
-            className="h-9 w-9 rounded-full flex-shrink-0"
-            disabled={(!message.trim() && !files.length) || isComposing || !isConnected}
-          >
-            {isUploading ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            <span className="sr-only">Send message</span>
-          </Button>
         </div>
+        
+        <Button 
+          type="button"
+          onClick={handleSubmit} 
+          size="icon" 
+          className="h-9 w-9 rounded-full flex-shrink-0"
           disabled={(!message.trim() && !files.length) || isComposing || !isConnected}
         >
           {isUploading ? (

@@ -1,112 +1,32 @@
-version: '3.8'
-
+version: "3.8"
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:15-alpine
-    container_name: pinnacle_db
-    restart: always
+  app-prod:
+    build: ./app
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${POSTGRES_DB:-pinnacle_copilot}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-pinnacle_copilot}"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # Redis for caching and message brokering
-  redis:
-    image: redis:7-alpine
-    container_name: pinnacle_redis
-    restart: always
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 5
-
-  # Backend API
-  api:
-    build:
-      context: .
-      dockerfile: Dockerfile.optimized
-    container_name: pinnacle_api
-    restart: always
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-pinnacle_copilot}
-      - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=${SECRET_KEY}
-      - ENVIRONMENT=production
+      - DATABASE_URL=postgresql://user:password@postgres-prod:5432/samoey_copilot_prod
+      - REDIS_URL=redis://redis-prod:6379/0
     ports:
       - "8000:8000"
-    volumes:
-      - ./logs:/app/logs
-
-  # Frontend
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: pinnacle_frontend
-    restart: always
-    environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    restart: unless-stopped
+  frontend-prod:
+    build: ./frontend
     ports:
       - "3000:3000"
-    depends_on:
-      - api
-
-  # Nginx as reverse proxy (optional)
-  nginx:
-    image: nginx:alpine
-    container_name: pinnacle_nginx
-    restart: always
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./ssl:/etc/nginx/ssl:ro
-    depends_on:
-      - api
-      - frontend
-
-  # Monitoring (optional)
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: pinnacle_prometheus
-    ports:
-      - "9090:9090"
-    volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-    restart: always
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: pinnacle_grafana
-    ports:
-      - "3001:3000"
-    volumes:
-      - grafana_data:/var/lib/grafana
+    restart: unless-stopped
+  postgres-prod:
+    image: postgres:15-alpine
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
-    restart: always
-
+      - POSTGRES_DB=samoey_copilot_prod
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    restart: unless-stopped
+  redis-prod:
+    image: redis:7-alpine
+    volumes:
+      - redis_prod_data:/data
+    restart: unless-stopped
 volumes:
-  postgres_data:
-  redis_data:
-  grafana_data:
+  postgres_prod_data:
+  redis_prod_data:

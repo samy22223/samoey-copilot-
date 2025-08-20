@@ -16,6 +16,16 @@ export function MainNav({
       active: pathname === "/chat",
     },
     {
+      href: "/agents",
+      label: "AI Agents",
+      active: pathname.startsWith("/agents"),
+    },
+    {
+      href: "/developer",
+      label: "Developer Tools",
+      active: pathname.startsWith("/developer"),
+    },
+    {
       href: "/models",
       label: "AI Models",
       active: pathname.startsWith("/models"),

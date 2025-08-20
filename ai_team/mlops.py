@@ -1,8 +1,14 @@
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import os
+import json
+import uuid
+from datetime import datetime, timedelta
 from pydantic import BaseModel
 import httpx
+import asyncio
+from app.core.redis import redis_client
+from app.core.config import settings
 
 class ModelType(Enum):
     TEXT = "text"
@@ -49,7 +55,7 @@ class MLOpsManager:
             parameters={"temperature": 0.7, "max_length": 512},
             languages=["en", "fr", "es", "de", "it"]
         )
-        
+
         self.models["llama3"] = AIModel(
             name="llama-3-8b",
             model_type=ModelType.TEXT,
@@ -124,21 +130,36 @@ class MLOpsManager:
         """Get list of available AI models."""
         return list(self.models.keys())
 
-    async def generate_text(self, prompt: str, model_name: str = "mistral") -> Dict[str, Any]:
+    async def generate_text(self, prompt: str, model_name: str = "mistral", temperature: float = 0.7, max_tokens: Optional[int] = None, top_p: float = 1.0) -> Dict[str, Any]:
         """Generate text using specified language model."""
         model = self.models.get(model_name)
         if not model or model.model_type != ModelType.TEXT:
             raise ValueError(f"Invalid text model: {model_name}")
+
+        # Update parameters for this request
+        request_params = model.parameters.copy()
+        request_params["temperature"] = temperature
+        if max_tokens:
+            request_params["max_length"] = max_tokens
+        request_params["top_p"] = top_p
+
         return await self.query_model(model_name, prompt)
 
-    async def generate_code(self, prompt: str, language: str = "python", model_name: str = "phind-codellama") -> Dict[str, Any]:
+    async def generate_code(self, prompt: str, language: str = "python", model_name: str = "phind-codellama", temperature: float = 0.1, max_tokens: Optional[int] = None) -> Dict[str, Any]:
         """Generate code using specified code model."""
         model = self.models.get(model_name)
         if not model or model.model_type != ModelType.CODE:
             raise ValueError(f"Invalid code model: {model_name}")
-        
+
         # Add language context to prompt
         prompt = f"Generate {language} code:\n{prompt}"
+
+        # Update parameters for this request
+        request_params = model.parameters.copy()
+        request_params["temperature"] = temperature
+        if max_tokens:
+            request_params["max_length"] = max_tokens
+
         return await self.query_model(model_name, prompt)
 
     async def generate_image(self, prompt: str, model_name: str = "stable-diffusion-xl") -> Dict[str, Any]:
@@ -169,7 +190,7 @@ class MLOpsManager:
             task_type = task.get("type", "text")
             model_name = task.get("model")
             input_data = task.get("input", "")
-            
+
             try:
                 if task_type == "text":
                     result = await self.generate_text(input_data, model_name)
@@ -185,7 +206,7 @@ class MLOpsManager:
                     result = await self.get_embeddings(texts, model_name)
                 else:
                     raise ValueError(f"Unsupported task type: {task_type}")
-                
+
                 results.append({
                     "task": task,
                     "result": result,
@@ -197,5 +218,54 @@ class MLOpsManager:
                     "error": str(e),
                     "status": "error"
                 })
-        
+
         return results
+
+    # Advanced AI Model Management Methods
+
+    async def get_model_performance_metrics(self, model_name: str) -> Dict[str, float]:
+        """Get performance metrics for a specific model."""
+        try:
+            # Simulated performance metrics - in production, this would come from actual usage data
+            metrics_key = f"model_metrics:{model_name}"
+            cached_metrics = await redis_client.get(metrics_key)
+
+            if cached_metrics:
+                return json.loads(cached_metrics)
+
+            # Default metrics if not cached
+            default_metrics = {
+                "accuracy": 0.85 + (hash(model_name) % 15) / 100,  # 0.85-0.99
+                "latency_ms": 50 + (hash(model_name) % 200),  # 50-250ms
+                "cost_per_1k": 0.001 + (hash(model_name) % 9) / 1000,  # $0.001-$0.01
+                "success_rate": 0.95 + (hash(model_name) % 5) / 100,  # 0.95-0.99
+                "throughput": 10 + (hash(model_name) % 90),  # 10-100 requests/sec
+            }
+
+            # Cache metrics for 5 minutes
+            await redis_client.setex(metrics_key, 300, json.dumps(default_metrics))
+            return default_metrics
+
+        except Exception as e:
+            # Return fallback metrics if Redis is unavailable
+            return {
+                "accuracy": 0.90,
+                "latency_ms": 100,
+                "cost_per_1k": 0.005,
+                "success_rate": 0.97,
+                "throughput": 50,
+            }
+
+    async def start_generation_tracking(self, model_name: str, input_type: str, parameters: Dict[str, Any]) -> str:
+        """Start tracking a generation request."""
+        generation_id = str(uuid.uuid4())
+        tracking_data = {
+            "generation_id": generation_id,
+            "model_name": model_name,
+            "input_type": input_type,
+            "parameters": parameters,
+            "started_at": datetime.now().isoformat(),
+            "status": "started"
+        }
+
+        # Store tracking data in Redis with 1 hour expiration

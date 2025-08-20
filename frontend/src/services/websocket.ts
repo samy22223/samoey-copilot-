@@ -1,12 +1,9 @@
 import { v4 as uuidv4 } from 'uuid';
-import { Message } from './api';
 
-type MessageCallback = (message: Message) => void;
+type MessageCallback = (message: any) => void;
 type ErrorCallback = (error: Event) => void;
 
 export type MessageHandler = (message: any) => void;
-
-export private messageListeners: { id: string; handler: MessageHandler }[] = [];
 
 type WebSocketMessage = {
   type: string;
@@ -42,17 +39,17 @@ class WebSocketService {
     if (process.env.NODE_ENV === 'development') {
       return process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:8000/ws';
     }
-    
+
     // In production, use the environment variable or derive from window.location
     if (typeof window !== 'undefined') {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = process.env.NEXT_PUBLIC_WS_URL 
+      const host = process.env.NEXT_PUBLIC_WS_URL
         ? process.env.NEXT_PUBLIC_WS_URL.replace(/^https?:/, 'ws:')
         : `${protocol}//${window.location.host}/ws`;
-      
+
       return host;
     }
-    
+
     // Fallback for SSR
     return 'ws://localhost:8000/ws';
   }
@@ -72,10 +69,10 @@ class WebSocketService {
     this.connectionPromise = new Promise((resolve, reject) => {
       const wsUrl = this.getWebSocketUrl();
       console.log(`Connecting to WebSocket at ${wsUrl}`);
-      
+
       try {
         this.socket = new WebSocket(wsUrl);
-        
+
         const onOpen = () => {
           console.log('WebSocket connected');
           this.isConnected = true;
@@ -84,17 +81,17 @@ class WebSocketService {
           this.flushPendingMessages();
           resolve();
         };
-        
+
         const onError = (error: Event) => {
           console.error('WebSocket error:', error);
           this.cleanup();
           reject(error);
           this.handleReconnect();
         };
-        
+
         this.socket.addEventListener('open', onOpen, { once: true });
         this.socket.addEventListener('error', onError, { once: true });
-        
+
         this.setupEventListeners();
       } catch (error) {
         console.error('WebSocket connection failed:', error);
@@ -103,7 +100,7 @@ class WebSocketService {
         this.handleReconnect();
       }
     });
-    
+
     return this.connectionPromise;
   }
 
@@ -138,12 +135,12 @@ class WebSocketService {
 
   private handleReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
-    
+
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
-    
+
     console.log(`Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
-    
+
     setTimeout(() => this.connect(), delay);
   }
 
@@ -152,7 +149,7 @@ class WebSocketService {
       console.warn('WebSocket not connected');
       return;
     }
-    
+
     try {
       const messageString = typeof message === 'string' ? message : JSON.stringify(message);
       this.socket.send(messageString);
@@ -182,6 +179,40 @@ class WebSocketService {
       this.socket = null;
       this.isConnected = false;
     }
+  }
+
+  // Additional methods that were referenced but missing
+  private setupPingPong(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+    }
+
+    this.pingInterval = setInterval(() => {
+      if (this.isConnected && this.socket) {
+        this.socket.send(JSON.stringify({ type: 'ping' }));
+      }
+    }, 30000); // Ping every 30 seconds
+  }
+
+  private flushPendingMessages(): void {
+    while (this.pendingMessages.length > 0) {
+      const message = this.pendingMessages.shift();
+      if (message) {
+        this.send(message);
+      }
+    }
+  }
+
+  private cleanup(): void {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+    }
+  }
+
+  // Getter for connection status
+  public get connected(): boolean {
+    return this.isConnected;
   }
 }
 

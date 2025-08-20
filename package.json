@@ -1,28 +1,73 @@
 {
-  "name": "pinnacle-copilot",
-  "version": "0.1.0",
+  "name": "samoey-copilot",
+  "version": "1.0.0",
+  "description": "Unified AI-powered development platform with autonomous agents and intelligent tools",
   "private": true,
-  "dependencies": {
-    "@testing-library/jest-dom": "^5.17.0",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.15.0",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
-  },
+  "workspaces": [
+    "frontend",
+    "app"
+  ],
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "dev:frontend": "cd frontend && npm run dev",
+    "dev:backend": "cd app && npm run dev",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "cd frontend && npm run build",
+    "build:backend": "cd app && npm run build",
+    "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
+    "start:frontend": "cd frontend && npm start",
+    "start:backend": "cd app && npm start",
+    "test": "npm run test:frontend && npm run test:backend",
+    "test:frontend": "cd frontend && npm test",
+    "test:backend": "cd app && npm test",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd app && npm run lint",
+    "format": "prettier --write .",
+    "install:all": "npm install && cd frontend && npm install && cd ../app && npm install",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:dev": "docker-compose -f docker-compose.dev.yml up -d",
+    "docker:prod": "docker-compose -f docker-compose.prod.yml up -d",
+    "setup": "./scripts/setup.sh",
+    "setup:dev": "./scripts/setup.sh --dev",
+    "migrate": "cd app && python -m alembic upgrade head",
+    "migrate:down": "cd app && python -m alembic downgrade -1"
   },
-  "eslintConfig": {
-    "extends": ["react-app", "react-app/jest"]
+  "keywords": [
+    "ai",
+    "copilot",
+    "development",
+    "autonomous-agents",
+    "code-generation",
+    "developer-tools"
+  ],
+  "author": "Samoey",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "husky": "^8.0.3",
+    "identity-obj-proxy": "^3.0.0",
+    "prettier": "^3.1.0"
   },
-  "browserslist": {
-    "production": [">0.2%", "not dead", "not op_mini all"],
-    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
-  }
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx,json,css,scss,md}": [
+      "prettier --write"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/samy22223/samoey-copilot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/samy22223/samoey-copilot/issues"
+  },
+  "homepage": "https://github.com/samy22223/samoey-copilot#readme"
 }
