@@ -1,0 +1,343 @@
+name: Enterprise-Grade Unified CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+      version:
+        description: 'Version to deploy'
+        required: false
+        type: string
+      rollback:
+        description: 'Rollback deployment'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Phase 1: Comprehensive Testing & Quality Assurance
+  test-and-quality:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, '3.10', '3.11']
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: samoey_copilot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.npm
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements*.txt', '**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Install all dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install -r app/requirements.txt
+        cd frontend && npm ci
+
+    - name: Run pre-commit checks
+      run: |
+        pip install pre-commit
+        pre-commit run --all-files
+
+    - name: Run backend tests
+      run: |
+        cd app
+        python -m pytest --cov=. --cov-report=xml --cov-report=html -v
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm run test:ci
+      env:
+        CI: true
+
+    - name: Run integration tests
+      run: |
+        cd tests
+        python -m pytest test_integration.py -v
+      env:
+        API_BASE_URL: http://localhost:8000
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./app/coverage.xml
+        flags: backend
+        name: backend-coverage-${{ matrix.python-version }}
+
+    - name: Upload test reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-reports-${{ matrix.python-version }}
+        path: |
+          app/coverage.xml
+          app/htmlcov/
+          frontend/coverage/
+
+  # Phase 2: Enhanced Security Scanning
+  security-compliance:
+    runs-on: ubuntu-latest
+    needs: test-and-quality
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install security tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install bandit safety semgrep truffleHog3
+        cd frontend && npm ci
+
+    - name: Run Bandit security scanning
+      run: |
+        bandit -r app/ -f json -o bandit-report.json || true
+        bandit -r app/ -f html -o bandit-report.html || true
+
+    - name: Run Safety dependency scanning
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check --html --output safety-report.html || true
+
+    - name: Run Semgrep SAST scanning
+      run: |
+        semgrep --config=auto --json --output=semgrep-report.json app/ || true
+        semgrep --config=auto --sarif --output=semgrep-report.sarif app/ || true
+
+    - name: Run TruffleHog secrets scanning
+      run: |
+        trufflehog filesystem --directory=. --json --output=trufflehog-report.json || true
+
+    - name: Run npm audit
+      run: |
+        cd frontend
+        npm audit --audit-level moderate --json > npm-audit-report.json || true
+        npm audit --audit-level moderate --output-format markdown > npm-audit-report.md || true
+
+    - name: Run container security scanning
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'Dockerfile'
+        format: 'json'
+        output: 'trivy-report.json'
+
+    - name: Check for critical vulnerabilities
+      run: |
+        echo "Checking for critical security issues..."
+        if [ -f "bandit-report.json" ]; then
+          HIGH_SEVERITY=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json)
+          echo "Bandit HIGH severity issues: $HIGH_SEVERITY"
+          if [ "$HIGH_SEVERITY" -gt 0 ]; then
+            echo "::warning::Found $HIGH_SEVERITY HIGH severity security issues in backend code"
+          fi
+        fi
+
+    - name: Upload SARIF to GitHub
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: semgrep-report.sarif
+
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+          bandit-report.html
+          safety-report.json
+          safety-report.html
+          semgrep-report.json
+          semgrep-report.sarif
+          trufflehog-report.json
+          npm-audit-report.json
+          npm-audit-report.md
+          trivy-report.json
+
+  # Phase 3: Advanced Code Quality Analysis
+  code-quality-analysis:
+    runs-on: ubuntu-latest
+    needs: test-and-quality
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install quality tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install black isort flake8 mypy pylint radon xenon lizard pipdeptree pip-licenses
+        cd frontend && npm ci
+
+    - name: Check Python code formatting
+      run: |
+        black --check app/ --diff || true
+        isort --check-only app/ --diff || true
+        flake8 app/ --format=json --output=flake8-report.json || true
+        mypy app/ --ignore-missing-imports --json-report=mypy-report.json || true
+        pylint app/ --output-format=json --output=pylint-report.json || true
+
+    - name: Check JavaScript/TypeScript quality
+      run: |
+        cd frontend
+        npm run lint -- --format=json --output-file=eslint-report.json || true
+        npm run format:check || true
+        npm run type-check || true
+
+    - name: Analyze code complexity
+      run: |
+        radon cc app/ -a -nb -o json > radon-complexity.json || true
+        radon mi app/ -o json > radon-maintainability.json || true
+        xenon --max-absolute B --max-modules B --max-average A app/ || true
+        lizard app/ --output json > lizard-report.json || true
+
+    - name: Analyze dependencies
+      run: |
+        pipdeptree --json-output > python-dependency-tree.json || true
+        pip-licenses --format=json --output-file=python-licenses.json || true
+        pip list --outdated --format=json > python-outdated.json || true
+        cd frontend && npm ls --json > ../node-dependency-tree.json || true
+        npx license-checker --json --out ../node-licenses.json || true
+        npm outdated --json > ../node-outdated.json || true
+
+    - name: Generate quality summary
+      run: |
+        echo "# Code Quality Analysis Report" > quality-summary.md
+        echo "Generated on: $(date)" >> quality-summary.md
+        echo "" >> quality-summary.md
+        echo "## Analysis Performed" >> quality-summary.md
+        echo "- **Python**: Black, isort, Flake8, MyPy, Pylint, Radon, Xenon, Lizard" >> quality-summary.md
+        echo "- **JavaScript/TypeScript**: ESLint, Prettier, TypeScript compiler" >> quality-summary.md
+        echo "- **Complexity**: Cyclomatic complexity and maintainability analysis" >> quality-summary.md
+        echo "- **Dependencies**: License compliance and security updates" >> quality-summary.md
+        echo "" >> quality-summary.md
+        echo "## Quality Metrics" >> quality-summary.md
+        echo "- Code formatting compliance" >> quality-summary.md
+        echo "- Type safety coverage" >> quality-summary.md
+        echo "- Code complexity thresholds" >> quality-summary.md
+        echo "- Dependency health status" >> quality-summary.md
+
+    - name: Upload quality reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: quality-reports
+        path: |
+          flake8-report.json
+          mypy-report.json
+          pylint-report.json
+          frontend/eslint-report.json
+          radon-complexity.json
+          radon-maintainability.json
+          lizard-report.json
+          python-dependency-tree.json
+          python-licenses.json
+          python-outdated.json
+          node-dependency-tree.json
+          node-licenses.json
+          node-outdated.json
+          quality-summary.md
+
+  # Phase 4: Performance & Load Testing
+  performance-testing:
+    runs-on: ubuntu-latest
+    needs: [test-and-quality, security-compliance, code-quality-analysis]
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: samoey_copilot_perf
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5

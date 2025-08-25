@@ -2,16 +2,16 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ....database import get_db
-from ....models import User, Conversation
-from ....schemas.conversation import ConversationCreate, ConversationInDB, ConversationUpdate
-from ....core.security import get_current_active_user
+from ..db.session import get_db
+from ...models import User, Conversation
+from ...schemas.conversation import ConversationCreate, ConversationInDB, ConversationUpdate
+from ...core.security import get_current_active_user
 
 router = APIRouter()
 
 @router.get("/", response_model=List[ConversationInDB])
 def read_conversations(
-    skip: int = 0, 
+    skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -83,11 +83,11 @@ def update_conversation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    
+
     update_data = conversation_in.dict(exclude_unset=True)
     for field, value in update_data.items():
         setattr(conversation, field, value)
-    
+
     db.add(conversation)
     db.commit()
     db.refresh(conversation)
@@ -112,7 +112,7 @@ def delete_conversation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    
+
     db.delete(conversation)
     db.commit()
     return {"ok": True}

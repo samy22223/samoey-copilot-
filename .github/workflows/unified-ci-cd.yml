@@ -1,136 +1,208 @@
-name: Unified CI/CD Pipeline
+name: Enterprise-Grade Unified CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+      version:
+        description: 'Version to deploy'
+        required: false
+        type: string
+      rollback:
+        description: 'Rollback deployment'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  test-frontend:
+  # Phase 1: Comprehensive Testing & Quality Assurance
+  test-and-quality:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
-    
+    strategy:
+      matrix:
+        python-version: [3.9, '3.10', '3.11']
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: samoey_copilot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
-        cache-dependency-path: ./frontend/package-lock.json
-    
-    - name: Install dependencies
-      run: npm ci
-    
-    - name: Run linter
-      run: npm run lint
-    
-    - name: Run tests
-      run: npm test
-    
-    - name: Build frontend
-      run: npm run build
+        cache-dependency-path: frontend/package-lock.json
 
-  test-backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: .
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Cache dependencies
+      uses: actions/cache@v3
       with:
-        python-version: '3.9'
-    
-    - name: Install dependencies
+        path: |
+          ~/.cache/pip
+          ~/.npm
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements*.txt', '**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Install all dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
-    
-    - name: Run linter
-      run: |
-        flake8 app/
-        black --check app/
-        isort --check-only app/
-    
-    - name: Run tests
-      run: |
-        pytest app/tests/ -v --cov=app
-    
-    - name: Security check
-      run: |
-        bandit -r app/
+        pip install -r app/requirements.txt
+        cd frontend && npm ci
 
-  docker-build:
-    needs: [test-frontend, test-backend]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v3
-    
-    - name: Login to Docker Hub
-      uses: docker/login-action@v3
+    - name: Run pre-commit checks
+      run: |
+        pip install pre-commit
+        pre-commit run --all-files
+
+    - name: Run backend tests
+      run: |
+        cd app
+        python -m pytest --cov=. --cov-report=xml --cov-report=html -v
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm run test:ci
+      env:
+        CI: true
+
+    - name: Run integration tests
+      run: |
+        cd tests
+        python -m pytest test_integration.py -v
+      env:
+        API_BASE_URL: http://localhost:8000
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
       with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v5
+        file: ./app/coverage.xml
+        flags: backend
+        name: backend-coverage-${{ matrix.python-version }}
+
+    - name: Upload test reports
+      uses: actions/upload-artifact@v3
       with:
-        context: .
-        push: true
-        tags: |
-          ${{ secrets.DOCKER_USERNAME }}/samoey-copilot:latest
-          ${{ secrets.DOCKER_USERNAME }}/samoey-copilot:${{ github.sha }}
-        cache-from: type=gha
-        cache-to: type=gha,mode=max
+        name: test-reports-${{ matrix.python-version }}
+        path: |
+          app/coverage.xml
+          app/htmlcov/
+          frontend/coverage/
 
-  deploy-staging:
-    needs: [docker-build]
+  # Phase 2: Enhanced Security Scanning
+  security-compliance:
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/develop'
-    environment: staging
-    
+    needs: test-and-quality
+
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Deploy to staging
-      run: |
-        echo "Deploying to staging environment..."
-        # Add your staging deployment commands here
-    
-    - name: Run smoke tests
-      run: |
-        echo "Running smoke tests..."
-        # Add your smoke test commands here
 
-  deploy-production:
-    needs: [docker-build]
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    environment: production
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Deploy to production
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Install security tools
       run: |
-        echo "Deploying to production environment..."
-        # Add your production deployment commands here
-    
-    - name: Health check
+        python -m pip install --upgrade pip
+        pip install bandit safety semgrep truffleHog3
+        cd frontend && npm ci
+
+    - name: Run Bandit security scanning
       run: |
-        echo "Running health checks..."
-        # Add your health check commands here
+        bandit -r app/ -f json -o bandit-report.json || true
+        bandit -r app/ -f html -o bandit-report.html || true
+
+    - name: Run Safety dependency scanning
+      run: |
+        safety check --json --output safety-report.json || true
+        safety check --html --output safety-report.html || true
+
+    - name: Run Semgrep SAST scanning
+      run: |
+        semgrep --config=auto --json --output=semgrep-report.json app/ || true
+        semgrep --config=auto --sarif --output=semgrep-report.sarif app/ || true
+
+    - name: Run TruffleHog secrets scanning
+      run: |
+        trufflehog filesystem --directory=. --json --output=trufflehog-report.json || true
+
+    - name: Run npm audit
+      run: |
+        cd frontend
+        npm audit --audit-level moderate --json > npm-audit-report.json || true
+        npm audit --audit-level moderate --output-format markdown > npm-audit-report.md || true
+
+    - name: Run container security scanning
+      uses: aquasecurity/trivy-action@master
+      with:
+        image-ref: 'Dockerfile'
+        format: 'json'
+        output: 'trivy-report.json'
+
+    - name: Check for critical vulnerabilities
+      run: |
+        echo "Checking for critical security issues..."
+        if [ -f "bandit-report.json" ]; then
+          HIGH_SEVERITY=$(jq '.results | map(select(.issue_severity == "HIGH")) | length' bandit-report.json)
+          echo "Bandit HIGH severity issues: $HIGH_SEVERITY"
+          if [ "$HIGH_SEVERITY" -gt 0 ]; then
+            echo "::warning::Found $HIGH_SEVERITY

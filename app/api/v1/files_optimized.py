@@ -6,7 +6,7 @@ from app.models import User
 from app.core.security import get_current_active_user
 from app.services.file_storage import file_storage_service
 from app.core.logging import logger
-from app.middleware.ratelimit import rate_limit
+from app.middleware.rate_limiter import rate_limit
 from fastapi.responses import JSONResponse
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend

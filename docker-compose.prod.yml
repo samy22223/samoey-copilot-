@@ -1,32 +1,240 @@
-version: "3.8"
 services:
-  app-prod:
-    build: ./app
-    environment:
-      - DATABASE_URL=postgresql://user:password@postgres-prod:5432/samoey_copilot_prod
-      - REDIS_URL=redis://redis-prod:6379/0
-    ports:
-      - "8000:8000"
-    restart: unless-stopped
-  frontend-prod:
-    build: ./frontend
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-  postgres-prod:
+  # Production Database
+  prod-db:
     image: postgres:15-alpine
+    env_file:
+      - .env.production
     environment:
-      - POSTGRES_DB=samoey_copilot_prod
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
+      POSTGRES_DB: samoey_copilot_prod
+      POSTGRES_USER: prod
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5435:5432"
     volumes:
-      - postgres_prod_data:/var/lib/postgresql/data
-    restart: unless-stopped
-  redis-prod:
+      - prod_postgres_data:/var/lib/postgresql/data
+      - ./db/backups:/backups
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+
+  # Production Redis
+  prod-redis:
     image: redis:7-alpine
+    env_file:
+      - .env.production
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports:
+      - "6382:6379"
     volumes:
-      - redis_prod_data:/data
-    restart: unless-stopped
+      - prod_redis_data:/data
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+
+  # Production Application
+  prod-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: production
+    env_file:
+      - .env.production
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://prod:${DB_PASSWORD}@prod-db:5432/samoey_copilot_prod
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@prod-redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - HUGGINGFACE_TOKEN=${HUGGINGFACE_TOKEN}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+      - JWT_REFRESH_SECRET_KEY=${JWT_REFRESH_SECRET_KEY}
+      - SENTRY_DSN=${SENTRY_DSN}
+      - LOG_LEVEL=INFO
+      - WORKERS=4
+      - SECURITY_ENABLED=true
+      - RATE_LIMIT_ENABLED=true
+      - CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
+      - MAX_REQUEST_SIZE=100MB
+      - TIMEOUT=30
+    ports:
+      - "3003:3000"
+      - "8003:8000"
+    depends_on:
+      - prod-db
+      - prod-redis
+    volumes:
+      - prod_uploads:/app/uploads
+      - prod_logs:/app/logs
+    networks:
+      - prod-network
+    deploy:
+      replicas: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+  # Production Nginx
+  prod-nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/ssl/prod:/etc/nginx/ssl
+      - prod_uploads:/var/www/uploads
+    depends_on:
+      - prod-app
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+        reservations:
+          memory: 128M
+          cpus: '0.2'
+
+  # Production Monitoring
+  prod-prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prod_prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.external-url=https://monitoring.yourdomain.com'
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+
+  prod-grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3001:3000"
+    env_file:
+      - .env.production
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_DOMAIN=grafana.yourdomain.com
+      - GF_SERVER_ROOT_URL=https://grafana.yourdomain.com
+    volumes:
+      - prod_grafana_data:/var/lib/grafana
+      - ./monitoring/grafana:/etc/grafana/provisioning
+    depends_on:
+      - prod-prometheus
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.2'
+
+  # Production Alertmanager
+  prod-alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - prod_alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
+  # Production Backup Service
+  prod-backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backup
+    env_file:
+      - .env.production
+    environment:
+      - DATABASE_URL=postgresql://prod:${DB_PASSWORD}@prod-db:5432/samoey_copilot_prod
+      - BACKUP_SCHEDULE=0 2 * * *
+      - BACKUP_RETENTION_DAYS=30
+      - S3_BUCKET=${S3_BUCKET}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+    volumes:
+      - ./backups:/backups
+    depends_on:
+      - prod-db
+    networks:
+      - prod-network
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.2'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+
 volumes:
-  postgres_prod_data:
-  redis_prod_data:
+  prod_postgres_data:
+  prod_redis_data:
+  prod_uploads:
+  prod_logs:
+  prod_prometheus_data:
+  prod_grafana_data:
+  prod_alertmanager_data:
+
+networks:
+  prod-network:
+    driver: bridge

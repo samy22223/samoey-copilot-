@@ -2,8 +2,10 @@ import os
 import shutil
 import gzip
 import json
+import subprocess
+import sqlite3
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from datetime import datetime, timedelta
 import logging
 from app.core.config import settings
@@ -284,6 +286,133 @@ class StorageOptimizer:
         results["space_estimated_saved_mb"] = round(results["space_estimated_saved"] / (1024 * 1024), 2)
         return results
 
+    def optimize_node_modules(self) -> Dict[str, Any]:
+        """Optimize node_modules by deduplication, pruning, and cache cleanup."""
+        results = {
+            "packages_pruned": 0,
+            "cache_cleaned": 0,
+            "space_saved_bytes": 0,
+            "duplicate_packages_removed": 0
+        }
+
+        try:
+            # Clean npm cache
+            try:
+                result = subprocess.run(['npm', 'cache', 'clean', '--force'],
+                                      capture_output=True, text=True, cwd=self.project_root)
+                if result.returncode == 0:
+                    results["cache_cleaned"] = 1
+                    logger.info("npm cache cleaned successfully")
+            except Exception as e:
+                logger.error(f"Error cleaning npm cache: {str(e)}")
+
+            # Prune unused packages in root node_modules
+            root_node_modules = self.project_root / "node_modules"
+            if root_node_modules.exists():
+                try:
+                    result = subprocess.run(['npm', 'prune'],
+                                          capture_output=True, text=True, cwd=self.project_root)
+                    if result.returncode == 0:
+                        results["packages_pruned"] = 1
+                        results["space_saved_bytes"] += 50 * 1024 * 1024  # Estimate 50MB saved
+                        logger.info("Root node_modules pruned successfully")
+                except Exception as e:
+                    logger.error(f"Error pruning root node_modules: {str(e)}")
+
+            # Prune frontend node_modules
+            frontend_node_modules = self.project_root / "frontend" / "node_modules"
+            if frontend_node_modules.exists():
+                try:
+                    result = subprocess.run(['npm', 'prune'],
+                                          capture_output=True, text=True, cwd=frontend_node_modules.parent)
+                    if result.returncode == 0:
+                        results["packages_pruned"] += 1
+                        results["space_saved_bytes"] += 10 * 1024 * 1024  # Estimate 10MB saved
+                        logger.info("Frontend node_modules pruned successfully")
+                except Exception as e:
+                    logger.error(f"Error pruning frontend node_modules: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error in node_modules optimization: {str(e)}")
+
+        results["space_saved_mb"] = round(results["space_saved_bytes"] / (1024 * 1024), 2)
+        return results
+
+    def cleanup_build_artifacts(self) -> Dict[str, Any]:
+        """Clean up build artifacts and temporary build files."""
+        results = {
+            "build_dirs_removed": 0,
+            "dist_files_removed": 0,
+            "space_freed_bytes": 0
+        }
+
+        build_patterns = ["build", "dist", "out", ".next", ".cache"]
+
+        try:
+            for pattern in build_patterns:
+                for item in self.project_root.rglob(pattern):
+                    if item.is_dir():
+                        try:
+                            dir_size = sum(f.stat().st_size for f in item.rglob('*') if f.is_file())
+                            shutil.rmtree(item)
+                            results["build_dirs_removed"] += 1
+                            results["space_freed_bytes"] += dir_size
+                            logger.info(f"Removed build directory: {item}")
+                        except Exception as e:
+                            logger.error(f"Error removing {item}: {str(e)}")
+
+        except Exception as e:
+            logger.error(f"Error in build artifacts cleanup: {str(e)}")
+
+        results["space_freed_mb"] = round(results["space_freed_bytes"] / (1024 * 1024), 2)
+        return results
+
+    def optimize_sqlite_database(self, db_path: Optional[str] = None) -> Dict[str, Any]:
+        """Optimize SQLite database with VACUUM and REINDEX."""
+        results = {
+            "database_optimized": False,
+            "space_freed_bytes": 0
+        }
+
+        try:
+            # Find database files if not specified
+            if not db_path:
+                db_files = list(self.project_root.rglob("*.db"))
+                if not db_files:
+                    logger.info("No SQLite database files found")
+                    return results
+                db_path = str(db_files[0])
+
+            db_file = Path(db_path)
+            if not db_file.exists():
+                logger.warning(f"Database file not found: {db_path}")
+                return results
+
+            # Get size before optimization
+            before_size = db_file.stat().st_size
+
+            # Optimize database
+            conn = sqlite3.connect(db_path)
+            try:
+                conn.execute("VACUUM")
+                conn.execute("REINDEX")
+                conn.commit()
+
+                # Get size after optimization
+                after_size = db_file.stat().st_size
+                results["space_freed_bytes"] = before_size - after_size
+                results["database_optimized"] = True
+
+                logger.info(f"Database optimized: {db_path}, saved {results['space_freed_bytes']} bytes")
+            finally:
+                conn.close()
+
+        except Exception as e:
+            logger.error(f"Error in database optimization: {str(e)}")
+
+        results["space_freed_mb"] = round(results["space_freed_bytes"] / (1024 * 1024), 2)
+        return results
+
     def run_full_optimization(self) -> Dict[str, Any]:
         """Run all storage optimization methods."""
         total_results = {
@@ -337,4 +466,3 @@ class StorageOptimizer:
         except Exception as e:
             logger.error(f"Error in full optimization: {str(e)}")
 
-        return total_results

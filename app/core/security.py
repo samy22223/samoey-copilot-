@@ -7,9 +7,9 @@ from fastapi.security import OAuth2PasswordBearer
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from backend.core.config import settings
-from backend.db.session import get_db
-from backend.models.user import User
+from app.core.config import settings
+from app.db.session import get_db
+from app.models.user import User
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -52,32 +52,32 @@ def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(
             token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM]
         )
-        
+
         if payload.get("type") != "access":
             raise credentials_exception
-            
+
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
-            
+
     except (JWTError, ValidationError):
         raise credentials_exception
-    
+
     user = db.query(User).filter(User.username == username).first()
     if user is None:
         raise credentials_exception
-        
+
     # Update last login time
     user.last_login = datetime.utcnow()
     db.commit()
-    
+
     return user
 
 def get_current_active_user(

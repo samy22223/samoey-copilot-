@@ -2,17 +2,17 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from ....database import get_db
-from ....models import User, Message, Conversation
-from ....schemas.message import MessageCreate, MessageInDB, MessageUpdate
-from ....core.security import get_current_active_user
+from ..db.session import get_db
+from ...models import User, Message, Conversation
+from ...schemas.message import MessageCreate, MessageInDB, MessageUpdate
+from ...core.security import get_current_active_user
 
 router = APIRouter()
 
 @router.get("/", response_model=List[MessageInDB])
 def read_messages(
     conversation_id: int,
-    skip: int = 0, 
+    skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -30,7 +30,7 @@ def read_messages(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    
+
     messages = db.query(Message).filter(
         Message.conversation_id == conversation_id
     ).order_by(Message.created_at.asc()).offset(skip).limit(limit).all()
@@ -56,7 +56,7 @@ def create_message(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
-    
+
     message = Message(
         **message_in.dict(exclude={"metadata"}),
         sender_id=current_user.id,
@@ -65,10 +65,10 @@ def create_message(
     db.add(message)
     db.commit()
     db.refresh(message)
-    
+
     # Update conversation's updated_at timestamp
     db.refresh(conversation)
-    
+
     return message
 
 @router.get("/{message_id}", response_model=MessageInDB)
@@ -89,7 +89,7 @@ def read_message(
         )
         .first()
     )
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -112,20 +112,20 @@ def update_message(
         Message.id == message_id,
         Message.sender_id == current_user.id  # Only sender can update
     ).first()
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Message not found or access denied",
         )
-    
+
     update_data = message_in.dict(exclude_unset=True)
     if "metadata" in update_data:
         update_data["metadata_"] = update_data.pop("metadata")
-    
+
     for field, value in update_data.items():
         setattr(message, field, value)
-    
+
     db.add(message)
     db.commit()
     db.refresh(message)
@@ -145,13 +145,13 @@ def delete_message(
         Message.id == message_id,
         Message.sender_id == current_user.id  # Only sender can delete
     ).first()
-    
+
     if not message:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Message not found or access denied",
         )
-    
+
     db.delete(message)
     db.commit()
     return {"ok": True}

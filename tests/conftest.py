@@ -5,9 +5,9 @@ from sqlalchemy.orm import sessionmaker
 import asyncio
 import os
 
-from backend.main import app
-from backend.db.session import get_db
-from backend.models.base import Base
+from app.main import app
+from app.db.session import get_db
+from app.models.base import Base
 
 # Test database URL
 TEST_DATABASE_URL = "sqlite+aiosqlite:///./test.db"

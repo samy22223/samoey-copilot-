@@ -1,0 +1,9 @@
+status=initialized
+cpu_usage=32
+memory_usage=
+disk_usage=75
+temperature=0
+power_source=AC Power
+optimization_level=balanced
+last_optimization=never
+prediction_accuracy=0

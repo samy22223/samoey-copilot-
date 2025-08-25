@@ -3,11 +3,11 @@ from typing import List, Optional
 from pydantic import BaseModel
 import uuid
 
-from ....services.ai.agent_service import get_agent_service, AgentService
-from ....services.ai.base_agent import AgentRole, AgentState, AgentMessage
-from ....services.ai.coder_agent import CoderAgent
-from ....core.security import get_current_active_user
-from ....models.user import User
+from ...services.ai.agent_service import get_agent_service, AgentService
+from ...services.ai.base_agent import AgentRole, AgentState, AgentMessage
+from ...services.ai.coder_agent import CoderAgent
+from ...core.security import get_current_active_user
+from ...models.user import User
 
 router = APIRouter()
 
@@ -39,7 +39,7 @@ async def create_agent(
 ):
     """Create a new agent with the specified role."""
     agent_id = str(uuid.uuid4())
-    
+
     # Create the appropriate agent based on role
     if agent_data.role == AgentRole.CODER:
         agent = CoderAgent(
@@ -53,10 +53,10 @@ async def create_agent(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Agent role not supported: {agent_data.role}"
         )
-    
+
     # Register the agent with the service
     agent_service.agents[agent_id] = agent
-    
+
     return {
         "agent_id": agent_id,
         "role": agent.role,
@@ -77,13 +77,13 @@ async def send_message(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
-    
+
     try:
         response = await agent.process(
             message_data.message,
             **message_data.config
         )
-        
+
         return {
             "content": response.content,
             "state": response.state
@@ -107,7 +107,7 @@ async def get_agent(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
-    
+
     return {
         "agent_id": agent.agent_id,
         "role": agent.role,
@@ -143,5 +143,5 @@ async def delete_agent(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Agent not found"
         )
-    
+
     return None

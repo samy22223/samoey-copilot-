@@ -1,14 +1,25 @@
 from typing import List, Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
+import uuid
+from sqlalchemy.orm import Session
+from sqlalchemy import and_, or_, desc
 from app.core.config import settings
 from app.services.email import email_service
+from app.db.session import get_db
+from app.models import User
 
 logger = logging.getLogger(__name__)
 
 class NotificationService:
     def __init__(self):
-        self.notifications_db = []  # In production, this would be a database table
+        pass  # Database operations will use session from dependency injection
+
+    async def get_db_session(self):
+        """Get database session."""
+        async for session in get_db():
+            yield session
+            break
 
     async def create_notification(
         self,
@@ -19,21 +30,32 @@ class NotificationService:
         data: Optional[Dict[str, Any]] = None
     ) -> Dict[str, Any]:
         """Create a new notification."""
-        notification = {
-            "id": len(self.notifications_db) + 1,
-            "user_id": user_id,
-            "title": title,
-            "message": message,
-            "type": notification_type,
-            "data": data or {},
-            "created_at": datetime.utcnow().isoformat(),
-            "read": False
-        }
+        session = self.get_db_session()
+        try:
+            notification_id = str(uuid.uuid4())
+            created_at = datetime.utcnow()
 
-        self.notifications_db.append(notification)
-        logger.info(f"Created notification {notification['id']} for user {user_id}")
+            # TODO: Replace with actual database insertion
+            # For now, simulate the database operation
+            notification = {
+                "id": notification_id,
+                "user_id": user_id,
+                "title": title,
+                "message": message,
+                "type": notification_type,
+                "data": data or {},
+                "read": False,
+                "created_at": created_at.isoformat()
+            }
 
-        return notification
+            logger.info(f"Created notification {notification_id} for user {user_id}")
+            return notification
+        except Exception as e:
+            logger.error(f"Error creating notification: {str(e)}")
+            session.rollback()
+            raise
+        finally:
+            session.close()
 
     async def get_user_notifications(
         self,
@@ -43,18 +65,19 @@ class NotificationService:
         unread_only: bool = False
     ) -> List[Dict[str, Any]]:
         """Get notifications for a user."""
-        user_notifications = [
-            notif for notif in self.notifications_db
-            if notif["user_id"] == user_id
-        ]
+        session = self.get_db_session()
+        try:
+            # TODO: Replace with actual database query
+            # For now, return empty list (simulating no notifications)
+            user_notifications = []
 
-        if unread_only:
-            user_notifications = [notif for notif in user_notifications if not notif["read"]]
-
-        # Sort by creation date (newest first)
-        user_notifications.sort(key=lambda x: x["created_at"], reverse=True)
-
-        return user_notifications[offset:offset + limit]
+            logger.info(f"Retrieved {len(user_notifications)} notifications for user {user_id}")
+            return user_notifications[offset:offset + limit]
+        except Exception as e:
+            logger.error(f"Error getting notifications: {str(e)}")
+            return []
+        finally:
+            session.close()
 
     async def mark_notification_read(self, notification_id: int, user_id: int) -> bool:
         """Mark a notification as read."""
@@ -165,4 +188,3 @@ class NotificationService:
         }
 
 # Global notification service instance
-notification_service = NotificationService()

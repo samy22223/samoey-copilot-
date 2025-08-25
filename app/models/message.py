@@ -4,16 +4,16 @@ from .base import BaseModel, Base
 
 class Message(BaseModel, Base):
     __tablename__ = "messages"
-    
+
     content = Column(Text, nullable=False)
     is_user = Column(Boolean, default=True)
     conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    
+
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
-    user = relationship("User", back_populates="messages")
-    
+    sender = relationship("User", back_populates="messages")
+
     def to_dict(self):
         return {
             "id": self.id,

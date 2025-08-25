@@ -1,0 +1,65 @@
+{
+  "projectName": "Samoey Copilot",
+  "projectType": "full-stack",
+  "directories": {
+    "frontend": "frontend/",
+    "backend": "app/",
+    "root": "./"
+  },
+  "buildTriggers": {
+    "frontend": {
+      "watchPaths": [
+        "frontend/src/**/*",
+        "frontend/public/**/*",
+        "frontend/package.json",
+        "frontend/next.config.js",
+        "frontend/tailwind.config.ts"
+      ],
+      "buildCommand": "cd frontend && npm run build",
+      "testCommand": "cd frontend && npm run test:ci",
+      "lintCommand": "cd frontend && npm run lint",
+      "dependencies": ["node", "npm", "next"],
+      "packageManager": "npm"
+    },
+    "backend": {
+      "watchPaths": [
+        "app/**/*.py",
+        "app/requirements.txt",
+        "app/main.py",
+        "app/models.py"
+      ],
+      "buildCommand": "cd app && python -m pytest",
+      "testCommand": "cd app && python -m pytest --cov=.",
+      "lintCommand": "cd app && black . && flake8 .",
+      "dependencies": ["python3", "pip", "uvicorn"],
+      "packageManager": "pip"
+    }
+  },
+  "autonomousSettings": {
+    "buildOnFileChange": true,
+    "runTestsOnBuild": true,
+    "securityScanOnBuild": true,
+    "optimizeResources": true,
+    "autoDeploy": false,
+    "backupOnBuild": true
+  },
+  "resourceManagement": {
+    "cpuThreshold": 80,
+    "memoryThreshold": 85,
+    "diskThreshold": 90,
+    "cleanupInterval": 3600,
+    "backupRetentionDays": 7
+  },
+  "notificationSettings": {
+    "buildSuccess": true,
+    "buildFailure": true,
+    "securityIssues": true,
+    "resourceWarnings": true
+  },
+  "integrationPoints": {
+    "dockerIntegration": true,
+    "databaseIntegration": true,
+    "apiIntegration": true,
+    "websocketIntegration": true
+  }
+}

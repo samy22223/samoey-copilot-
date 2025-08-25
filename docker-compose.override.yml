@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build:
@@ -12,36 +10,39 @@ services:
       - redis
       - etcd
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/pinnacle_copilot
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@postgres:5432/samoey_copilot
       - REDIS_URL=redis://redis:6379/0
       - ETCD_HOST=etcd
       - ETCD_PORT=2379
     volumes:
       - .:/app
       - ./data:/app/data
+    env_file:
+      - .env
+    restart: unless-stopped
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
 
   postgres:
-    image: postgres:13
+    image: postgres:13-alpine
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=pinnacle_copilot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: samoey_copilot
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d samoey_copilot"]
       interval: 5s
       timeout: 5s
       retries: 5
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
 
   redis:
-    image: redis:7
+    image: redis:7-alpine
     ports:
       - "6379:6379"
     volumes:
@@ -49,33 +50,37 @@ services:
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
-      timeout: 5s
-      retries: 5
+      timeout: 30s
+      retries: 3
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
 
   etcd:
     image: quay.io/coreos/etcd:v3.5.0
-    command: etcd -advertise-client-urls http://0.0.0.0:2379 -listen-client-urls http://0.0.0.0:2379
+    command: etcd -advertise-client-urls http://etcd:2379 -listen-client-urls http://0.0.0.0:2379
     ports:
       - "2379:2379"
-      - "2380:2380"
     volumes:
       - etcd_data:/etcd-data
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   pgadmin:
-    image: dpage/pgadmin4
+    image: dpage/pgadmin4:latest
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@pinnacle.local
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      PGADMIN_DEFAULT_EMAIL: admin@samoey.local
+      PGADMIN_DEFAULT_PASSWORD: admin
     ports:
       - "5050:80"
     depends_on:
       - postgres
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -86,10 +91,10 @@ services:
     depends_on:
       - redis
     networks:
-      - pinnacle-network
+      - samoey-copilot-net
 
 networks:
-  pinnacle-network:
+  samoey-copilot-net:
     driver: bridge
 
 volumes:

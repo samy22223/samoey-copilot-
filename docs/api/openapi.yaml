@@ -1,318 +1,37 @@
 openapi: 3.0.0
 info:
   title: Samoey Copilot API
-  description: Comprehensive API documentation for Samoey Copilot project
+  description: Comprehensive API documentation for Samoey Copilot - AI-powered development assistant
   version: 1.0.0
   contact:
     name: Samoey Copilot Team
-    email: support@samoey-copilot.com
+    email: support@samoey.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
 
 servers:
-  - url: http://localhost:8000/api/v1
-    description: Development server
-  - url: https://api.samoey-copilot.com/v1
+  - url: https://api.samoey.com/v1
     description: Production server
+  - url: https://staging-api.samoey.com/v1
+    description: Staging server
+  - url: http://localhost:8000/api/v1
+    description: Local development server
+
+security:
+  - BearerAuth: []
 
 paths:
-  /auth/login:
-    post:
-      tags:
-        - Authentication
-      summary: User login
-      description: Authenticate user and return access token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - username
-                - password
-              properties:
-                username:
-                  type: string
-                  example: user@example.com
-                password:
-                  type: string
-                  format: password
-                  example: securepassword123
-      responses:
-        '200':
-          description: Successful login
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  access_token:
-                    type: string
-                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                  token_type:
-                    type: string
-                    example: bearer
-        '401':
-          description: Invalid credentials
-
-  /auth/register:
-    post:
-      tags:
-        - Authentication
-      summary: User registration
-      description: Register a new user account
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - username
-                - email
-                - password
-              properties:
-                username:
-                  type: string
-                  example: newuser
-                email:
-                  type: string
-                  format: email
-                  example: user@example.com
-                password:
-                  type: string
-                  format: password
-                  example: securepassword123
-                full_name:
-                  type: string
-                  example: John Doe
-      responses:
-        '201':
-          description: User created successfully
-        '400':
-          description: Invalid input data
-        '409':
-          description: User already exists
-
-  /users/:
-    get:
-      tags:
-        - Users
-      summary: Get all users
-      description: Retrieve a list of all users (admin only)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: skip
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 100
-      responses:
-        '200':
-          description: List of users
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/User'
-        '401':
-          description: Unauthorized
-
-  /users/me:
-    get:
-      tags:
-        - Users
-      summary: Get current user
-      description: Get information about the current authenticated user
-      security:
-        - BearerAuth: []
-      responses:
-        '200':
-          description: Current user information
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/User'
-        '401':
-          description: Unauthorized
-
-  /files/upload:
-    post:
-      tags:
-        - Files
-      summary: Upload file
-      description: Upload a file to the server
-      security:
-        - BearerAuth: []
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                file:
-                  type: string
-                  format: binary
-                  description: File to upload
-      responses:
-        '200':
-          description: File uploaded successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  file_id:
-                    type: string
-                  filename:
-                    type: string
-                  size:
-                    type: integer
-                  url:
-                    type: string
-        '400':
-          description: Invalid file or size exceeded
-        '401':
-          description: Unauthorized
-
-  /files/{file_id}:
-    get:
-      tags:
-        - Files
-      summary: Download file
-      description: Download a file by ID
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: file_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: File content
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '404':
-          description: File not found
-        '401':
-          description: Unauthorized
-
-  /notifications/:
-    get:
-      tags:
-        - Notifications
-      summary: Get notifications
-      description: Get user notifications
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: skip
-          in: query
-          schema:
-            type: integer
-            default: 0
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 50
-        - name: unread_only
-          in: query
-          schema:
-            type: boolean
-            default: false
-      responses:
-        '200':
-          description: List of notifications
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Notification'
-        '401':
-          description: Unauthorized
-
-  /notifications/{notification_id}/read:
-    post:
-      tags:
-        - Notifications
-      summary: Mark notification as read
-      description: Mark a specific notification as read
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: notification_id
-          in: path
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification marked as read
-        '404':
-          description: Notification not found
-        '401':
-          description: Unauthorized
-
-  /analytics/usage:
-    get:
-      tags:
-        - Analytics
-      summary: Get usage analytics
-      description: Get usage statistics and analytics
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: start_date
-          in: query
-          schema:
-            type: string
-            format: date
-        - name: end_date
-          in: query
-          schema:
-            type: string
-            format: date
-      responses:
-        '200':
-          description: Usage analytics data
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  total_users:
-                    type: integer
-                  active_users:
-                    type: integer
-                  api_calls:
-                    type: integer
-                  storage_used:
-                    type: integer
-        '401':
-          description: Unauthorized
-
-  /health/:
+  /health:
     get:
       tags:
         - System
-      summary: Health check
-      description: System health check endpoint
+      summary: Health Check
+      description: Check the health status of the API
+      operationId: healthCheck
       responses:
         '200':
-          description: System is healthy
+          description: API is healthy
           content:
             application/json:
               schema:
@@ -326,6 +45,282 @@ paths:
                     format: date-time
                   version:
                     type: string
+                    example: 1.0.0
+
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: User Login
+      description: Authenticate user and return access token
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: user@example.com
+                password:
+                  type: string
+                  format: password
+                  example: securePassword123
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refresh_token:
+                    type: string
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  token_type:
+                    type: string
+                    example: bearer
+                  expires_in:
+                    type: integer
+                    example: 3600
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /users/me:
+    get:
+      tags:
+        - Users
+      summary: Get Current User
+      description: Get current authenticated user information
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: User information retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /files/upload:
+    post:
+      tags:
+        - Files
+      summary: Upload File
+      description: Upload a file to the server
+      operationId: uploadFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload
+                description:
+                  type: string
+                  description: File description
+                  example: My important document
+      responses:
+        '200':
+          description: File uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: File uploaded successfully
+                  file_id:
+                    type: string
+                    example: 550e8400-e29b-41d4-a716-446655440000
+                  filename:
+                    type: string
+                    example: document.pdf
+                  file_size:
+                    type: integer
+                    example: 1024
+                  uploaded_at:
+                    type: string
+                    format: date-time
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '413':
+          description: Payload too large
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /files/:
+    get:
+      tags:
+        - Files
+      summary: List Files
+      description: List user files with pagination
+      operationId: listFiles
+      parameters:
+        - name: skip
+          in: query
+          description: Number of files to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          description: Number of files to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        '200':
+          description: Files retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  files:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/FileInfo'
+                  total:
+                    type: integer
+                    example: 25
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 50
+
+  /notifications/:
+    get:
+      tags:
+        - Notifications
+      summary: Get Notifications
+      description: Get user notifications
+      operationId: getNotifications
+      parameters:
+        - name: skip
+          in: query
+          description: Number of notifications to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: limit
+          in: query
+          description: Number of notifications to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: unread_only
+          in: query
+          description: Filter only unread notifications
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+                  total:
+                    type: integer
+                    example: 10
+                  unread_count:
+                    type: integer
+                    example: 3
+                  page:
+                    type: integer
+                    example: 1
+                  limit:
+                    type: integer
+                    example: 50
+
+  /analytics/usage:
+    get:
+      tags:
+        - Analytics
+      summary: Get Usage Analytics
+      description: Get usage analytics for the current user
+      operationId: getUsageAnalytics
+      parameters:
+        - name: start_date
+          in: query
+          description: Start date for analytics range
+          schema:
+            type: string
+            format: date
+        - name: end_date
+          in: query
+          description: End date for analytics range
+          schema:
+            type: string
+            format: date
+        - name: period
+          in: query
+          description: Predefined period (1h, 24h, 7d, 30d, 90d, 365d)
+          schema:
+            type: string
+            enum: [1h, 24h, 7d, 30d, 90d, 365d]
+      responses:
+        '200':
+          description: Analytics retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: object
+                    properties:
+                      start_date:
+                        type: string
+                        format: date
+                      end_date:
+                        type: string
+                        format: date
+                  user_activity:
+                    type: object
+                  messaging:
+                    type: object
+                  file_operations:
+                    type: object
+                  api_usage:
+                    type: object
+                  ai_interactions:
+                    type: object
 
 components:
   securitySchemes:
@@ -339,18 +334,24 @@ components:
       type: object
       properties:
         id:
-          type: string
-          format: uuid
-        username:
-          type: string
+          type: integer
+          example: 1
         email:
           type: string
           format: email
+          example: user@example.com
+        username:
+          type: string
+          example: johndoe
         full_name:
           type: string
+          example: John Doe
         is_active:
           type: boolean
-          default: true
+          example: true
+        is_verified:
+          type: boolean
+          example: true
         created_at:
           type: string
           format: date-time
@@ -358,35 +359,274 @@ components:
           type: string
           format: date-time
 
+    FileInfo:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000
+        original_filename:
+          type: string
+          example: document.pdf
+        stored_filename:
+          type: string
+          example: 550e8400-e29b-41d4-a716-446655440000.pdf
+        file_size:
+          type: integer
+          example: 1024
+        content_type:
+          type: string
+          example: application/pdf
+        description:
+          type: string
+          example: My important document
+        uploaded_at:
+          type: string
+          format: date-time
+        downloads:
+          type: integer
+          example: 5
+
     Notification:
       type: object
       properties:
         id:
           type: string
-          format: uuid
+          example: 550e8400-e29b-41d4-a716-446655440000
         user_id:
-          type: string
-          format: uuid
-        type:
-          type: string
-          enum: [info, warning, error, success]
+          type: integer
+          example: 1
         title:
           type: string
+          example: New Login Detected
         message:
           type: string
-        is_read:
+          example: New login detected for your account
+        type:
+          type: string
+          enum: [info, warning, error, success, system, security]
+          example: security
+        data:
+          type: object
+          example: {"event": "login", "timestamp": "2023-01-01T00:00:00Z"}
+        created_at:
+          type: string
+          format: date-time
+        read:
           type: boolean
-          default: false
+          example: false
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: Request validation failed
+            details:
+              type: object
+            timestamp:
+              type: string
+              format: date-time
+
+  responses:
+    BadRequestError:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFoundError:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+tags:
+  - name: System
+    description: System endpoints
+  - name: Authentication
+    description: Authentication endpoints
+  - name: Users
+    description: User management endpoints
+  - name: Files
+    description: File management endpoints
+  - name: Notifications
+    description: Notification endpoints
+  - name: Analytics
+    description: Analytics endpoints
+
+    Conversation:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Project Discussion
+        description:
+          type: string
+          example: Discussion about the new AI project
+        user_id:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        messages_count:
+          type: integer
+          example: 5
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        content:
+          type: string
+          example: Hello, I need help with my AI project
+        conversation_id:
+          type: integer
+          example: 1
+        user_id:
+          type: integer
+          example: 1
+        role:
+          type: string
+          enum: [user, assistant]
+          example: user
         created_at:
           type: string
           format: date-time
 
-    ErrorResponse:
+    Notification:
       type: object
       properties:
-        error:
+        id:
+          type: integer
+          example: 1
+        title:
           type: string
+          example: New Message
         message:
           type: string
-        details:
-          type: object
+          example: You have a new message in your conversation
+        type:
+          type: string
+          enum: [info, warning, error, success]
+          example: info
+        is_read:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+
+  responses:
+    BadRequestError:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Bad request
+
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Could not validate credentials
+
+    ForbiddenError:
+      description: Forbidden
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Not enough permissions
+
+    NotFoundError:
+      description: Not found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string
+                example: Resource not found
+
+    ValidationError:
+      description: Validation error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    loc:
+                      type: array
+                      items:
+                        type: string
+                    msg:
+                      type: string
+                    type:
+                      type: string
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: string

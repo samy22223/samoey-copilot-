@@ -4,15 +4,15 @@ from .base import BaseModel, Base
 
 class Conversation(BaseModel, Base):
     __tablename__ = "conversations"
-    
+
     title = Column(String(200), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     is_archived = Column(Boolean, default=False)
-    
+
     # Relationships
-    user = relationship("User", back_populates="conversations")
+    owner = relationship("User", back_populates="conversations")
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
-    
+
     def to_dict(self, include_messages=False):
         data = {
             "id": self.id,
@@ -22,8 +22,8 @@ class Conversation(BaseModel, Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
-        
+
         if include_messages:
             data["messages"] = [message.to_dict() for message in self.messages]
-            
+
         return data

@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   app:
     build: .
@@ -16,22 +14,22 @@ services:
       - etcd
     restart: unless-stopped
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
 
   postgres:
     image: postgres:13-alpine
     environment:
-      POSTGRES_USER: pinnacle
-      POSTGRES_PASSWORD: pinnacle
-      POSTGRES_DB: pinnacle_copilot
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: samoey_copilot
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pinnacle -d pinnacle_copilot"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d samoey_copilot"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -43,7 +41,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -58,7 +56,7 @@ services:
     volumes:
       - etcd_data:/etcd-data
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
     healthcheck:
       test: ["CMD", "etcdctl", "endpoint", "health"]
       interval: 5s
@@ -75,7 +73,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
 
   redis-commander:
     image: rediscommander/redis-commander:latest
@@ -86,10 +84,10 @@ services:
     depends_on:
       - redis
     networks:
-      - pinnacle-net
+      - samoey-copilot-net
 
 networks:
-  pinnacle-net:
+  samoey-copilot-net:
     driver: bridge
 
 volumes:

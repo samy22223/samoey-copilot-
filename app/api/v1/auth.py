@@ -4,18 +4,18 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import Any
 
-from ....database import get_db
-from ....models import User
-from ....schemas.token import Token
-from ....schemas.user import UserCreate, UserInDB
-from ....core.security import get_password_hash, create_access_token
-from ....core.config import settings
+from ..db.session import get_db
+from ...models import User
+from ...schemas.token import Token
+from ...schemas.user import UserCreate, UserInDB
+from ...core.security import get_password_hash, create_access_token
+from ...core.config import settings
 
 router = APIRouter()
 
 @router.post("/login", response_model=Token)
 def login_access_token(
-    db: Session = Depends(get_db), 
+    db: Session = Depends(get_db),
     form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """
@@ -32,7 +32,7 @@ def login_access_token(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Inactive user"
         )
-    
+
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     return {
         "access_token": create_access_token(
@@ -56,7 +56,7 @@ def create_user(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="The user with this email already exists in the system.",
         )
-    
+
     user = User(
         email=user_in.email,
         hashed_password=get_password_hash(user_in.password),

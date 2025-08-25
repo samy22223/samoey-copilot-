@@ -1,0 +1,299 @@
+name: Enterprise-Grade Unified CI/CD Pipeline - Complete
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+      version:
+        description: 'Version to deploy'
+        required: false
+        type: string
+      rollback:
+        description: 'Rollback deployment'
+        required: false
+        type: boolean
+        default: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Phase 1-4: Testing, Security, Quality, and Performance (Combined)
+  comprehensive-validation:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, '3.10', '3.11']
+      fail-fast: false
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: samoey_copilot_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cache/pip
+          ~/.npm
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/requirements*.txt', '**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Install all dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install -r app/requirements.txt
+        pip install bandit safety semgrep truffleHog3 black isort flake8 mypy pylint radon xenon lizard pipdeptree pip-licenses locust pytest-benchmark psutil memory-profiler
+        cd frontend && npm ci
+
+    - name: Run comprehensive tests
+      run: |
+        # Backend tests
+        cd app
+        python -m pytest --cov=. --cov-report=xml --cov-report=html -v
+        cd ..
+
+        # Frontend tests
+        cd frontend
+        npm run test:ci
+        cd ..
+
+        # Integration tests
+        cd tests
+        python -m pytest test_integration.py -v
+        cd ..
+
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_test
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: test-secret-key
+        API_BASE_URL: http://localhost:8000
+        CI: true
+
+    - name: Run security scanning
+      run: |
+        # Python security
+        bandit -r app/ -f json -o bandit-report.json || true
+        safety check --json --output safety-report.json || true
+        semgrep --config=auto --json --output=semgrep-report.json app/ || true
+        trufflehog filesystem --directory=. --json --output=trufflehog-report.json || true
+
+        # Node.js security
+        cd frontend
+        npm audit --audit-level moderate --json > ../npm-audit-report.json || true
+        cd ..
+
+    - name: Run code quality analysis
+      run: |
+        # Python quality
+        black --check app/ --diff || true
+        isort --check-only app/ --diff || true
+        flake8 app/ --format=json --output=flake8-report.json || true
+        mypy app/ --ignore-missing-imports --json-report=mypy-report.json || true
+        pylint app/ --output-format=json --output=pylint-report.json || true
+
+        # Complexity analysis
+        radon cc app/ -a -nb -o json > radon-complexity.json || true
+        radon mi app/ -o json > radon-maintainability.json || true
+        xenon --max-absolute B --max-modules B --max-average A app/ || true
+        lizard app/ --output json > lizard-report.json || true
+
+        # JavaScript quality
+        cd frontend
+        npm run lint -- --format=json --output-file=../eslint-report.json || true
+        npm run format:check || true
+        npm run type-check || true
+        cd ..
+
+    - name: Run performance testing
+      run: |
+        # Start backend for performance testing
+        cd app
+        python -m uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1 &
+        sleep 15
+
+        # Database performance tests
+        python -m pytest tests/test_performance.py -v --benchmark-only || true
+
+        # Locust load testing
+        cat > locustfile.py << 'EOF'
+        from locust import HttpUser, task, between
+        import random
+
+        class ApiUser(HttpUser):
+            wait_time = between(1, 3)
+
+            @task(3)
+            def get_health(self):
+                self.client.get("/api/health")
+
+            @task(2)
+            def get_analytics(self):
+                self.client.get("/api/v1/analytics")
+
+            @task(2)
+            def get_conversations(self):
+                self.client.get("/api/v1/conversations")
+        EOF
+
+        locust --host http://localhost:8000 --users 5 --spawn-rate 1 --run-time 1m --headless --html locust-report.html || true
+
+      env:
+        DATABASE_URL: postgresql://postgres:postgres@localhost:5432/samoey_copilot_perf
+        REDIS_URL: redis://localhost:6379
+        SECRET_KEY: perf-test-secret-key
+        ENVIRONMENT: testing
+
+    - name: Build and test frontend performance
+      run: |
+        cd frontend
+        npm run build
+        # Lighthouse CI would run here if token available
+        npm install --save-dev webpack-bundle-analyzer
+        npx webpack-bundle-analyzer .next/static/chunks --report bundle-report.html --mode static --no-open || true
+        cd ..
+
+    - name: Upload all validation reports
+      uses: actions/upload-artifact@v3
+      with:
+        name: validation-reports-${{ matrix.python-version }}
+        path: |
+          app/coverage.xml
+          app/htmlcov/
+          frontend/coverage/
+          bandit-report.json
+          safety-report.json
+          semgrep-report.json
+          trufflehog-report.json
+          npm-audit-report.json
+          flake8-report.json
+          mypy-report.json
+          pylint-report.json
+          radon-complexity.json
+          radon-maintainability.json
+          lizard-report.json
+          eslint-report.json
+          locust-report.html
+          bundle-report.html
+
+  # Phase 5: Build & Package
+  build-and-package:
+    runs-on: ubuntu-latest
+    needs: comprehensive-validation
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Set up Python and Node.js
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+        pip install -r app/requirements.txt
+        cd frontend && npm ci
+        cd ..
+
+    - name: Build application
+      run: |
+        npm run build
+        npm run build:backend
+
+    - name: Build Docker images
+      run: |
+        docker-compose -f docker-compose.staging.yml build
+        docker-compose -f docker-compose.prod.yml build
+
+    - name: Log in to container registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix={{branch}}-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push Docker images
+      run: |
+        # Frontend image
+        docker buildx build --platform linux/amd64,linux/arm64 \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-frontend \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-frontend \
+          --push \
+          ./frontend
+
+        # Backend image
+        docker buildx build --platform linux/amd64,linux/arm64 \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-backend \
+          --tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-backend \
+          --push \
+          ./app
+
+    - name: Generate build summary
+      run: |
+        echo "# Build and Package Summary" > build-summary.md
+        echo "Generated on: $(date)" >> build-summary.md
+        echo "" >> build-summary.md
+        echo "## Build Details" >> build-summary.md
+        echo "- **Commit**: ${{ github.sha }}" >> build-summary.md
+        echo "-

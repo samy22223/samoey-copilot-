@@ -1,0 +1,10 @@
+# Resource Prediction Model
+cpu_weight=0.3
+memory_weight=0.3
+disk_weight=0.2
+temp_weight=0.1
+power_weight=0.1
+learning_rate=0.1
+prediction_accuracy=0
+total_predictions=0
+correct_predictions=0
